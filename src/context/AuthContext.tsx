@@ -61,7 +61,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = (token: string, userData: User) => {
-    // JWT is set in httpOnly cookie by backend, but we store user data in state
+    // Save to localStorage as a fallback for browsers blocking cross-domain cookies
+    localStorage.setItem('auth_token', token);
     setUser(userData);
     fetchPermissions();
   };
@@ -71,6 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await fetch('/api/auth/logout', { method: 'POST' });
     } catch (error) {
     }
+    localStorage.removeItem('auth_token');
     setUser(null);
     setPermissions({});
     // Trigger full page reload to clear memory state as per security requirements

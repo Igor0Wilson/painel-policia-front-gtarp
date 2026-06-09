@@ -7,8 +7,19 @@ import './index.css';
 const _originalFetch = window.fetch.bind(window);
 window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
   const apiBase = import.meta.env.VITE_API_URL as string | undefined;
+  
   if (apiBase && typeof input === 'string' && input.startsWith('/api')) {
-    return _originalFetch(apiBase + input, { credentials: 'include', ...init });
+    const token = localStorage.getItem('auth_token');
+    const customHeaders = new Headers(init?.headers);
+    if (token) {
+      customHeaders.set('Authorization', `Bearer ${token}`);
+    }
+
+    return _originalFetch(apiBase + input, { 
+      ...init,
+      credentials: 'include',
+      headers: customHeaders
+    });
   }
   return _originalFetch(input, init);
 };
