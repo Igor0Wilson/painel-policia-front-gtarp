@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora Penal - Capital City</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+    <header class="main-header">
+        <div class="container">
+            <div class="header-content">
+                <div class="brand">
+                    <div class="brand-logo">
+                        <img src="logo.png" alt="Capital City Logo">
+                    </div>
+                    <div class="brand-text">
+                        <h1>Capital City</h1>
+                        <p>Calculadora Penal v2.0</p>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-modern btn-secondary-modern" data-bs-toggle="modal" data-bs-target="#penalCodeModal">
+                        <i class="bi bi-book-fill"></i>
+                        Código Penal
+                    </button>
+                    <button class="btn-modern btn-primary-modern" onclick="window.open('https://youtu.be/Hq0tbnTd8Ws', '_blank')">
+                        <i class="bi bi-youtube"></i>
+                        Tutorial
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <section class="data-section">
+        <div class="container">
+            <div class="form-grid">
+                <div class="form-group-modern">
+                    <label class="form-label-modern">Nome do Preso</label>
+                    <input type="text" id="preso_nome" class="form-control-modern" placeholder="Digite o nome completo...">
+                </div>
+                <div class="form-group-modern">
+                    <label class="form-label-modern">Passaporte do Preso</label>
+                    <input type="text" id="preso_passaporte" class="form-control-modern" placeholder="Número do passaporte...">
+                </div>
+                <div class="form-group-modern">
+                    <label class="form-label-modern">Passaporte do Advogado</label>
+                    <input type="text" id="adv_passaporte" class="form-control-modern" placeholder="Se houver...">
+                </div>
+                <div class="form-group-modern">
+                    <label class="form-label-modern">Responsável (ID Discord)</label>
+                    <input type="text" id="responsavel_prisao" class="form-control-modern" placeholder="ID para menção...">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="container">
+        <div class="main-layout">
+            <div class="crimes-column">
+                <div class="toolbar">
+                    <div class="search-box">
+                        <i class="bi bi-search"></i>
+                        <input type="text" id="search-crimes" placeholder="Buscar crime por nome...">
+                    </div>
+                    <div class="presets-dropdown">
+                        <button class="btn-modern btn-secondary-modern" onclick="togglePresets()">
+                            <i class="bi bi-lightning-fill"></i>
+                            Presets
+                            <i class="bi bi-chevron-down"></i>
+                        </button>
+                        <div class="presets-menu" id="presetsMenu">
+                            <div class="preset-item" onclick="applyPreset('roubo-loja')">🏪 Roubo a Loja</div>
+                            <div class="preset-item" onclick="applyPreset('trafico')">💊 Tráfico de Drogas</div>
+                            <div class="preset-item" onclick="applyPreset('homicidio')">🔪 Homicídio</div>
+                            <div class="preset-item" onclick="applyPreset('fuga')">🚗 Fuga + Desacato</div>
+                            <div class="preset-item" onclick="applyPreset('assalto')">💰 Assalto a Mão Armada</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="crimes-container" id="crimesContainer"></div>
+            </div>
+
+            <aside class="calculator-sidebar">
+                <div class="calculator-card-modern">
+                    <div class="calculator-header">
+                        <h3><i class="bi bi-calculator-fill"></i> Resultado</h3>
+                    </div>
+                    <div class="calculator-body">
+                        <div class="result-item">
+                            <div class="result-label">⏳ Pena Total</div>
+                            <div class="result-value pena" id="pena_total">0 meses</div>
+                        </div>
+                        
+                        <div class="alert-maxima" id="pena-maxima-aviso" style="display: none;">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            Pena excedeu 100 meses!<br>
+                            <small>Original: <span id="pena-original-calculada">0</span> meses</small>
+                        </div>
+
+                        <div class="result-item">
+                            <div class="result-label">💸 Multa</div>
+                            <div class="result-value multa" id="multa_total">R$ 0</div>
+                        </div>
+
+                        <div class="result-item">
+                            <div class="result-label">💰 Fiança</div>
+                            <div class="result-value fianca" id="fianca_total">R$ 0</div>
+                        </div>
+
+                        <!-- Lista de Crimes Selecionados -->
+                        <div class="selected-crimes-section">
+                            <div class="selected-crimes-header">
+                                <span class="selected-crimes-count"><i class="bi bi-list-check"></i> Crimes Selecionados</span>
+                                <span class="selected-crimes-badge" id="selectedCount">0</span>
+                            </div>
+                            <div class="selected-crimes-list" id="selectedCrimesList">
+                                <div class="no-crimes-message">Nenhum crime selecionado</div>
+                            </div>
+                        </div>
+
+                        <div class="modifiers-section-modern">
+                            <div class="section-title">
+                                <i class="bi bi-sliders"></i>
+                                Atenuantes / Agravantes
+                            </div>
+
+                            <div class="modifier-item" id="mod-advogado" onclick="toggleModifier('advogado')">
+                                <div class="modifier-icon">⚖️</div>
+                                <div class="modifier-content">
+                                    <div class="modifier-title">Advogado Constituído</div>
+                                    <div class="modifier-desc">Redução de 30% na pena</div>
+                                </div>
+                            </div>
+
+                            <div class="sub-modifiers" id="sub-atenuantes">
+                                <div class="modifier-item" id="mod-primario" onclick="toggleModifier('primario')">
+                                    <div class="modifier-icon">✨</div>
+                                    <div class="modifier-content">
+                                        <div class="modifier-title">Réu Primário</div>
+                                        <div class="modifier-desc">Redução de 50%</div>
+                                    </div>
+                                </div>
+                                <div class="modifier-item" id="mod-confesso" onclick="toggleModifier('confesso')">
+                                    <div class="modifier-icon">🗣️</div>
+                                    <div class="modifier-content">
+                                        <div class="modifier-title">Réu Confesso</div>
+                                        <div class="modifier-desc">Redução de 15%</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="modifier-item danger" id="mod-oac" onclick="toggleModifier('oac')">
+                                <div class="modifier-icon">🚨</div>
+                                <div class="modifier-content">
+                                    <div class="modifier-title">Possui OAC</div>
+                                    <div class="modifier-desc">Aumento de 300% na pena</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="modifiers-section-modern">
+                            <div class="section-title">
+                                <i class="bi bi-images"></i>
+                                Evidências
+                            </div>
+                            <div class="uploaders-grid">
+                                <div class="uploader-modern" id="uploader-preso" onclick="triggerUpload('preso')">
+                                    <i class="bi bi-person-fill"></i>
+                                    <span>Foto do Preso</span>
+                                    <img class="uploader-preview" id="preview-preso">
+                                    <input type="file" id="file-preso" class="d-none" accept="image/*" onchange="handleFile(this, 'preso')">
+                                </div>
+                                <div class="uploader-modern" id="uploader-rg" onclick="triggerUpload('rg')">
+                                    <i class="bi bi-card-text"></i>
+                                    <span>Foto do RG</span>
+                                    <img class="uploader-preview" id="preview-rg">
+                                    <input type="file" id="file-rg" class="d-none" accept="image/*" onchange="handleFile(this, 'rg')">
+                                </div>
+                                <div class="uploader-modern" id="uploader-apreensao" onclick="triggerUpload('apreensao')">
+                                    <i class="bi bi-box-seam-fill"></i>
+                                    <span>Apreensão</span>
+                                    <img class="uploader-preview" id="preview-apreensao">
+                                    <input type="file" id="file-apreensao" class="d-none" accept="image/*" onchange="handleFile(this, 'apreensao')">
+                                </div>
+                                <div class="uploader-modern" id="uploader-quimico" onclick="triggerUpload('quimico')">
+                                    <i class="bi bi-droplet-fill"></i>
+                                    <span>Teste Químico</span>
+                                    <img class="uploader-preview" id="preview-quimico">
+                                    <input type="file" id="file-quimico" class="d-none" accept="image/*" onchange="handleFile(this, 'quimico')">
+                                </div>
+                                <div class="uploader-modern" id="uploader-residual" onclick="triggerUpload('residual')">
+                                    <i class="bi bi-fingerprint"></i>
+                                    <span>Teste Residual</span>
+                                    <img class="uploader-preview" id="preview-residual">
+                                    <input type="file" id="file-residual" class="d-none" accept="image/*" onchange="handleFile(this, 'residual')">
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <div class="relatorio-section">
+                            <div class="section-title">
+                                <i class="bi bi-file-text-fill"></i>
+                                Relatório
+                            </div>
+                            <textarea class="relatorio-textarea" id="relatorio-texto" placeholder="Descreva a ocorrência detalhadamente..."></textarea>
+                        </div>
+
+                        <div class="relatorio-section">
+                            <div class="section-title">
+                                <i class="bi bi-at"></i>
+                                Mencionar Cargos
+                            </div>
+                            <div class="mentions-grid">
+                                <div class="mention-item" onclick="toggleMention(this, '1284263338012053536')">
+                                    <div class="mention-checkbox-custom"><i class="bi bi-check"></i></div>
+                                    <span>Rádio Patrulha</span>
+                                </div>
+                                <div class="mention-item" onclick="toggleMention(this, '1386102940397473832')">
+                                    <div class="mention-checkbox-custom"><i class="bi bi-check"></i></div>
+                                    <span>SPEED</span>
+                                </div>
+                                <div class="mention-item" onclick="toggleMention(this, '1196216213517373520')">
+                                    <div class="mention-checkbox-custom"><i class="bi bi-check"></i></div>
+                                    <span>Força Tática</span>
+                                </div>
+                                <div class="mention-item" onclick="toggleMention(this, '1196216280500424818')">
+                                    <div class="mention-checkbox-custom"><i class="bi bi-check"></i></div>
+                                    <span>ROCAM</span>
+                                </div>
+                                <div class="mention-item" onclick="toggleMention(this, '1334341012478361610')">
+                                    <div class="mention-checkbox-custom"><i class="bi bi-check"></i></div>
+                                    <span>CAvPM</span>
+                                </div>
+                                <div class="mention-item" onclick="toggleMention(this, '1250878309081026581')">
+                                    <div class="mention-checkbox-custom"><i class="bi bi-check"></i></div>
+                                    <span>PC</span>
+                                </div>
+                                <div class="mention-item" onclick="toggleMention(this, '1292538305304596550')">
+                                    <div class="mention-checkbox-custom"><i class="bi bi-check"></i></div>
+                                    <span>GCC</span>
+                                </div>
+                                <div class="mention-item" onclick="toggleMention(this, '1279907505811619921')">
+                                    <div class="mention-checkbox-custom"><i class="bi bi-check"></i></div>
+                                    <span>ROTA</span>
+                                </div>
+                                <div class="mention-item" onclick="toggleMention(this, '1196199181082181732')">
+                                    <div class="mention-checkbox-custom"><i class="bi bi-check"></i></div>
+                                    <span>PRFE</span>
+                                </div>
+                                <div class="mention-item" onclick="toggleMention(this, '1481454297534173275')">
+                                    <div class="mention-checkbox-custom"><i class="bi bi-check"></i></div>
+                                    <span>BAEC</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="action-buttons">
+                            <button class="btn-action btn-copy" onclick="copyToClipboard()">
+                                <i class="bi bi-clipboard-fill"></i>
+                                Copiar
+                            </button>
+                            <button class="btn-action btn-discord" onclick="sendToDiscord()">
+                                <i class="bi bi-discord"></i>
+                                Discord
+                            </button>
+                            <button class="btn-action btn-clear" onclick="clearAll()">
+                                <i class="bi bi-trash-fill"></i>
+                                Limpar Tudo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <footer>
+        <p>Calculadora Penal Capital City v2.0 | Desenvolvida pelo Coronel Frank</p>
+        <p style="font-size: 0.6875rem; margin-top: 0.25rem;">Última atualização: 23/03/2025</p>
+    </footer>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="modal fade" id="crimeInfoModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content modal-content-modern">
+                <div class="modal-header modal-header-modern">
+                    <h5 class="modal-title" id="crimeInfoTitle">Detalhes do Crime</h5>
+                    <button type="button" class="btn-close-modern" data-bs-dismiss="modal">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+                <div class="modal-body modal-body-modern" id="crimeInfoBody"></div>
+                <div class="modal-footer modal-footer-modern">
+                    <button type="button" class="btn-modern btn-secondary-modern" data-bs-dismiss="modal">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="penalCodeModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+            <div class="modal-content modal-content-modern">
+                <div class="modal-header modal-header-modern">
+                    <h5 class="modal-title">Código Penal Completo</h5>
+                    <button type="button" class="btn-close-modern" data-bs-dismiss="modal">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+                <div class="modal-body modal-body-modern" id="penalCodeBody"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/data.js"></script>
+    <script src="assets/js/app.js"></script>
+</body>
+</html>
