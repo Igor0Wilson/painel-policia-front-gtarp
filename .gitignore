@@ -41,3 +41,6 @@ db.json
 *.sln
 *.sw?
 .DS_Store
+  
+# Backend (projeto separado)  
+backend/ 
