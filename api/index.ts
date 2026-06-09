@@ -39,7 +39,7 @@ app.get("/api/health", (_req, res) => {
 app.use("/api", router);
 
 // Local development server
-if (process.env.NODE_ENV !== "production") {
+if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
   const PORT = process.env.PORT || 5000;
   app.listen(PORT);
 }
