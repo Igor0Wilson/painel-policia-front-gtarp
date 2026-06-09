@@ -44,7 +44,7 @@ if (!useLocalDb) {
 // -------------------------------------------------------------
 // LOCAL DB IMPLEMENTATION (only used when USE_LOCAL_DB=true)
 // -------------------------------------------------------------
-const dbPath = path.resolve(process.cwd(), "db.json");
+const dbPath = process.env.VERCEL ? "/tmp/db.json" : path.resolve(process.cwd(), "db.json");
 
 function readDb() {
   if (!fs.existsSync(dbPath)) {
@@ -111,7 +111,11 @@ function readDb() {
         },
       },
     };
-    fs.writeFileSync(dbPath, JSON.stringify(initialData, null, 2), "utf8");
+    try {
+      fs.writeFileSync(dbPath, JSON.stringify(initialData, null, 2), "utf8");
+    } catch {
+      // Silently fail if filesystem is read-only (e.g., Vercel)
+    }
     return initialData;
   }
   try {
