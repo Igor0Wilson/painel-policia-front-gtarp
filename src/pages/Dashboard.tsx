@@ -11,14 +11,18 @@ import {
   Send,
   Sparkles,
   ClipboardPen,
-  FileQuestion
+  FileQuestion,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { RankIcon } from '../components/RankIcon';
 
 interface Announcement {
+  id?: string;
   title: string;
   content: string;
+  authorId?: string;
   authorName: string;
   authorRole: string;
   date: string;
@@ -50,6 +54,11 @@ export const Dashboard: React.FC = () => {
   const [showAnnForm, setShowAnnForm] = useState(false);
   const [annSuccess, setAnnSuccess] = useState('');
   const [annError, setAnnError] = useState('');
+
+  // Delete announcement states
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [selectedAnnId, setSelectedAnnId] = useState<string | null>(null);
+  const [annDeleteError, setAnnDeleteError] = useState('');
 
   const [loading, setLoading] = useState(true);
 
@@ -157,6 +166,38 @@ export const Dashboard: React.FC = () => {
       setAnnError(err.message);
     } finally {
       setPostingAnn(false);
+    }
+  };
+
+  const openDeleteConfirm = (id: string) => {
+    setSelectedAnnId(id);
+    setAnnDeleteError('');
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDeleteAnnouncement = async () => {
+    if (!selectedAnnId) return;
+    setAnnDeleteError('');
+    try {
+      const res = await fetch(`/api/announcements/${selectedAnnId}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        // Refresh announcements
+        const annRes = await fetch('/api/announcements');
+        if (annRes.ok) {
+          const annData = await annRes.json();
+          setAnnouncements(annData);
+        }
+        setDeleteModalOpen(false);
+        setSelectedAnnId(null);
+      } else {
+        const data = await res.json();
+        setAnnDeleteError(data.error || 'Erro ao excluir comunicado.');
+      }
+    } catch (err) {
+      console.error(err);
+      setAnnDeleteError('Erro de conexão ao excluir comunicado.');
     }
   };
 
@@ -326,10 +367,19 @@ export const Dashboard: React.FC = () => {
                   
                   <div className="flex justify-between items-start gap-4 mb-4">
                     <h4 className="text-lg font-outfit font-black text-zinc-100 uppercase tracking-tight flex-1 group-hover:text-yellow-400 transition-colors">{ann.title}</h4>
-                    <div className="shrink-0 bg-black px-3 py-1.5 rounded-lg border border-zinc-800">
+                    <div className="shrink-0 bg-black px-3 py-1.5 rounded-lg border border-zinc-800 flex items-center gap-2">
                       <span className="text-[10px] text-zinc-500 font-mono font-bold tracking-widest">
                         {new Date(ann.date).toLocaleDateString('pt-BR')}
                       </span>
+                      {ann.id && (user?.role === 'coronel' || ann.authorId === user?.id || ann.authorName === user?.name) && (
+                        <button
+                          onClick={() => openDeleteConfirm(ann.id!)}
+                          className="text-rose-500 hover:text-rose-450 p-1 rounded hover:bg-rose-500/10 transition-colors flex items-center justify-center ml-1 border border-zinc-800"
+                          title="Excluir Comunicado"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                   
@@ -401,6 +451,52 @@ export const Dashboard: React.FC = () => {
           </div>
         )}
       </div>
+
+      {deleteModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="max-w-md w-full glass-panel border border-yellow-500/30 bg-zinc-900 p-8 rounded-2xl text-center space-y-6 shadow-[0_0_50px_rgba(234,179,8,0.15)] animate-in fade-in zoom-in-95 duration-200 relative overflow-hidden">
+            {/* Yellow alert top line */}
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-600 via-yellow-500 to-transparent" />
+            
+            <div className="w-16 h-16 rounded-full bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center mx-auto text-yellow-500 animate-pulse">
+              <AlertTriangle className="w-8 h-8" />
+            </div>
+            
+            <div className="space-y-2">
+              <h3 className="font-outfit font-extrabold text-xl text-zinc-100 uppercase tracking-wide">Confirmar Exclusão?</h3>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                Você deseja realmente excluir este comunicado oficial? Esta ação é irreversível e o comunicado será removido permanentemente da dashboard.
+              </p>
+              {annDeleteError && (
+                <p className="text-xs text-rose-500 font-bold bg-rose-500/10 p-2 rounded-lg border border-rose-500/20 mt-2">
+                  {annDeleteError}
+                </p>
+              )}
+            </div>
+            
+            <div className="pt-2 flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteModalOpen(false);
+                  setAnnDeleteError('');
+                  setSelectedAnnId(null);
+                }}
+                className="flex-1 py-3 px-4 rounded-xl border border-zinc-800 hover:bg-zinc-800 text-zinc-300 font-bold uppercase tracking-wider text-[10px] transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteAnnouncement}
+                className="flex-1 py-3 px-4 rounded-xl bg-yellow-600 hover:bg-yellow-500 text-black font-black uppercase tracking-wider text-[10px] transition-all flex items-center justify-center gap-2 shadow-lg shadow-yellow-900/40 active:scale-95"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

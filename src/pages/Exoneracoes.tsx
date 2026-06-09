@@ -33,6 +33,7 @@ export const Exoneracoes: React.FC = () => {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -62,14 +63,14 @@ export const Exoneracoes: React.FC = () => {
     fetchData();
   }, []);
 
-  const handleExonerate = async (e: React.FormEvent) => {
+  const handleExonerateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser || !reason.trim()) return;
+    setShowConfirmModal(true);
+  };
 
-    if (!window.confirm("TEM CERTEZA ABSOLUTA? Esta ação bloqueará permanentemente o acesso do militar ao sistema e publicará a exoneração no Diário Oficial.")) {
-      return;
-    }
-
+  const executeExoneration = async () => {
+    setShowConfirmModal(false);
     setProcessing(true);
     setError('');
     setSuccess('');
@@ -155,7 +156,7 @@ export const Exoneracoes: React.FC = () => {
               Esta ação é **irreversível** pelo painel. O militar selecionado terá o acesso permanentemente negado e a ação será registrada no Diário Oficial publicamente.
             </p>
 
-            <form onSubmit={handleExonerate} className="space-y-5">
+            <form onSubmit={handleExonerateSubmit} className="space-y-5">
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2">
                   <Users className="w-3.5 h-3.5" />
@@ -294,6 +295,43 @@ export const Exoneracoes: React.FC = () => {
         </div>
 
       </div>
+
+      {showConfirmModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="max-w-md w-full glass-panel border border-rose-950/60 bg-zinc-900 p-8 rounded-2xl text-center space-y-6 shadow-[0_0_50px_rgba(225,29,72,0.15)] animate-in fade-in zoom-in-95 duration-200 relative overflow-hidden">
+            {/* Red alert top line */}
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-rose-600 via-rose-500 to-transparent" />
+            
+            <div className="w-16 h-16 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto text-rose-500 animate-pulse">
+              <ShieldAlert className="w-8 h-8" />
+            </div>
+            
+            <div className="space-y-2">
+              <h3 className="font-outfit font-extrabold text-xl text-zinc-100 uppercase tracking-wide">Confirmar Exoneração?</h3>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                Você tem certeza absoluta? Esta ação bloqueará permanentemente o acesso do militar ao sistema e registrará a exoneração no Diário Oficial.
+              </p>
+            </div>
+            
+            <div className="pt-2 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                className="flex-1 py-3 px-4 rounded-xl border border-zinc-800 hover:bg-zinc-800 text-zinc-300 font-bold uppercase tracking-wider text-[10px] transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={executeExoneration}
+                className="flex-1 py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold uppercase tracking-wider text-[10px] transition-all flex items-center justify-center gap-2 shadow-lg shadow-rose-900/40 active:scale-95"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

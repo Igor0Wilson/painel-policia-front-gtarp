@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Camera, UploadCloud, Save, AlertTriangle, CheckCircle } from 'lucide-react';
 

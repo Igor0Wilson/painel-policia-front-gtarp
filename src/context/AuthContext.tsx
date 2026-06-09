@@ -9,7 +9,9 @@ export interface User {
   courseTags?: string[];
   avatarUrl?: string;
   coverUrl?: string;
+  dutyStatus?: string;
 }
+
 
 interface AuthContextType {
   user: User | null;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
-  RefreshCw, Check, Shield, Users, Clock, Play, Square, UserPlus, LogOut, X, AlertTriangle, Crosshair, MapPin, DollarSign, Gavel, Award, User, Plus, CheckCircle, ClipboardPen, Trash2, FileText, ChevronUp, ChevronDown
+  RefreshCw, Check, Shield, ShieldAlert, Users, Clock, Play, Square, UserPlus, LogOut, X, AlertTriangle, Crosshair, MapPin, DollarSign, Gavel, Award, User, Plus, CheckCircle, ClipboardPen, Trash2, FileText, ChevronUp, ChevronDown
 } from 'lucide-react';
 import { RankIcon } from '../components/RankIcon';
 
@@ -17,6 +17,8 @@ interface UserData {
   name: string;
   role: string;
   status: string;
+  dutyStatus?: string;
+  isWaitingPtr?: boolean;
 }
 
 interface MemberData {
@@ -120,7 +122,7 @@ export const RelatoriosOcorrencias: React.FC = () => {
       if (ptrRes.ok) setActivePtrs(await ptrRes.json());
       if (usrRes.ok) {
         const users = await usrRes.json();
-        setSystemUsers(users.filter((u: UserData) => u.status === 'active'));
+        setSystemUsers(users.filter((u: UserData) => u.status === 'active' && u.dutyStatus !== 'fora-de-servico'));
       }
       if (vtrRes.ok) setViaturas(await vtrRes.json());
     } catch (err) {
@@ -642,26 +644,52 @@ export const RelatoriosOcorrencias: React.FC = () => {
             </h3>
             <p className="text-sm text-slate-400 mt-1">Acompanhe e participe das VTRs ativas na cidade.</p>
           </div>
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={handleToggleWaitingPtr}
-              disabled={loading}
-              className={`px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-all border shadow-lg ${
-                isMeWaiting 
-                  ? 'bg-amber-500/20 text-amber-400 border-amber-500/30 hover:bg-amber-500/30 shadow-amber-500/10 animate-pulse'
-                  : 'bg-slate-800 text-slate-300 hover:text-slate-100 border-slate-700 hover:border-slate-500'
-              }`}
-            >
-              <Clock className="w-5 h-5" />
-              {isMeWaiting ? 'AGUARDANDO VTR...' : 'FICAR AGUARDANDO PTR'}
-            </button>
-            <button 
-              onClick={() => setIsCreatingVtr(true)}
-              className="px-6 py-3 rounded-xl bg-yellow-600 hover:bg-yellow-500 text-white font-bold text-sm flex items-center gap-2 transition-all shadow-lg shadow-yellow-600/20"
-            >
-              <Plus className="w-5 h-5" /> MONTAR NOVA VTR
-            </button>
-          </div>
+          {user?.dutyStatus === 'fora-de-servico' ? (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-red-950/20 border border-red-500/20 px-5 py-3 rounded-2xl animate-in fade-in duration-300">
+              <div className="flex items-center gap-3 text-red-400">
+                <ShieldAlert className="w-5 h-5 flex-shrink-0 animate-pulse text-red-500" />
+                <div className="text-left">
+                  <p className="text-xs font-bold uppercase tracking-wider">Patrulha Restrita</p>
+                  <p className="text-[10px] text-slate-400 font-medium">Bata o ponto de entrada para montar ou participar de patrulhas.</p>
+                </div>
+              </div>
+              <div className="flex gap-2 w-full sm:w-auto ml-auto">
+                <button 
+                  disabled
+                  className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-slate-900 text-slate-600 border border-slate-850 text-xs font-bold cursor-not-allowed opacity-50 uppercase tracking-wider"
+                >
+                  Aguardar PTR
+                </button>
+                <button 
+                  disabled
+                  className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-slate-900 text-slate-600 border border-slate-850 text-xs font-bold cursor-not-allowed opacity-50 uppercase tracking-wider"
+                >
+                  Montar VTR
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={handleToggleWaitingPtr}
+                disabled={loading}
+                className={`px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-all border shadow-lg ${
+                  isMeWaiting 
+                    ? 'bg-amber-500/20 text-amber-400 border-amber-500/30 hover:bg-amber-500/30 shadow-amber-500/10 animate-pulse'
+                    : 'bg-slate-800 text-slate-300 hover:text-slate-100 border-slate-700 hover:border-slate-500'
+                }`}
+              >
+                <Clock className="w-5 h-5" />
+                {isMeWaiting ? 'AGUARDANDO VTR...' : 'FICAR AGUARDANDO PTR'}
+              </button>
+              <button 
+                onClick={() => setIsCreatingVtr(true)}
+                className="px-6 py-3 rounded-xl bg-yellow-600 hover:bg-yellow-500 text-white font-bold text-sm flex items-center gap-2 transition-all shadow-lg shadow-yellow-600/20"
+              >
+                <Plus className="w-5 h-5" /> MONTAR NOVA VTR
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Modal de Criação - Tactical Dark Mode */}
@@ -814,10 +842,10 @@ export const RelatoriosOcorrencias: React.FC = () => {
 
                   <button 
                     onClick={() => handleAction(`/api/ptrs/${ptr.id}/requests`, { type: 'join' })}
-                    disabled={loading || ptr.members.length >= 6 || ptr.requests.some(r => r.userId === user?.id && r.type === 'join')}
+                    disabled={loading || user?.dutyStatus === 'fora-de-servico' || ptr.members.length >= 6 || ptr.requests.some(r => r.userId === user?.id && r.type === 'join')}
                     className="w-full py-3.5 rounded-xl bg-slate-800 hover:bg-yellow-500/20 text-yellow-400 font-bold text-xs transition-colors border border-slate-700 hover:border-yellow-500/30 flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                   >
-                    <UserPlus className="w-4 h-4" /> SOLICITAR ENTRADA
+                    <UserPlus className="w-4 h-4" /> {user?.dutyStatus === 'fora-de-servico' ? 'PONTO EXIGIDO' : 'SOLICITAR ENTRADA'}
                   </button>
                 </div>
               </div>

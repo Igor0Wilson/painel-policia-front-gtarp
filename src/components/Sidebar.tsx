@@ -17,7 +17,9 @@ import {
   BarChart2,
   PlaySquare,
   UserMinus,
-  MessageSquare
+  MessageSquare,
+  Clock,
+  Briefcase
 } from 'lucide-react';
 
 import { RankIcon } from './RankIcon';
@@ -83,20 +85,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
 
   const menuItems = [
     { path: '/', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard' },
+    { path: '/bate-ponto', label: 'Bater Ponto', icon: Clock, permission: 'dashboard' },
+    { path: '/informativos', label: 'Informativos', icon: BookOpen, permission: 'informativos' },
+    { path: '/relatorios', label: 'PTR', icon: FileText, permission: 'relatorios' },
     { path: '/prisional', label: 'Módulo Prisional', icon: Shield, permission: 'prisional' },
     { path: '/fichas', label: 'Histórico Prisional', icon: Archive, permission: 'prisional' },
-    { path: '/relatorios', label: 'PTR', icon: FileText, permission: 'relatorios' },
+    { path: '/cursos', label: 'Cursos & Apostilas', icon: BookOpen, permission: 'cursos' },
+    { path: '/chat', label: 'Bate-Papo da Corporação', icon: MessageSquare, permission: 'chat' },
+    { path: '/social', label: 'Comunidade & Clipes', icon: PlaySquare, permission: 'social' },
     { path: '/ausencias', label: 'Ausências', icon: CalendarX, permission: 'ausencias' },
     { path: '/subdivisoes', label: 'Subdivisões', icon: Users, permission: 'comandos' },
     { path: '/corregedoria', label: 'Corregedoria Interna', icon: ShieldAlert, permission: 'corregedoria' },
-    { path: '/cursos', label: 'Cursos & Apostilas', icon: BookOpen, permission: 'cursos' },
-    { path: '/informativos', label: 'Informativos', icon: BookOpen, permission: 'informativos' },
+    { path: '/rh-ponto', label: 'RH - Controle de Ponto', icon: Briefcase, permission: 'users' },
+    { path: '/metricas', label: 'Métricas da Corporação', icon: BarChart2, permission: 'metrics' },
     { path: '/usuarios', label: 'Gestão de Membros', icon: UserCog, permission: 'users' },
     { path: '/exoneracoes', label: 'Exonerações', icon: UserMinus, permission: 'exoneracoes' },
-    { path: '/permissoes', label: 'Permissões de Acesso', icon: KeyRound, permission: 'permissions' },
-    { path: '/metricas', label: 'Métricas da Corporação', icon: BarChart2, permission: 'metrics' },
-    { path: '/social', label: 'Comunidade & Clipes', icon: PlaySquare, permission: 'social' },
-    { path: '/chat', label: 'Bate-Papo da Corporação', icon: MessageSquare, permission: 'chat' }
+    { path: '/permissoes', label: 'Permissões de Acesso', icon: KeyRound, permission: 'permissions' }
   ];
 
   const visibleMenuItems = menuItems.filter(item => {

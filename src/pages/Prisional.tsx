@@ -160,7 +160,7 @@ export const Prisional: React.FC = () => {
   };
 
   return (
-    <div className="absolute inset-x-0 bottom-0 top-16 lg:left-64 flex flex-col overflow-hidden z-20" onClick={() => isUserSelectOpen && setIsUserSelectOpen(false)}>
+    <div className="absolute inset-0 flex flex-col overflow-hidden z-20" onClick={() => isUserSelectOpen && setIsUserSelectOpen(false)}>
 
       {/* ── Top Action Bar (dark, outside the iframe) ── */}
       <div className="flex-shrink-0 flex flex-col sm:flex-row items-start sm:items-center justify-between px-5 py-3 bg-slate-900 border-b border-slate-800/70 gap-4">
@@ -235,7 +235,7 @@ export const Prisional: React.FC = () => {
       <div className="flex-1 w-full overflow-hidden">
         <iframe
           ref={iframeRef}
-          src={`${import.meta.env.VITE_API_URL}/api/proxy/calculadora`}
+          src={`${import.meta.env.VITE_API_URL || ''}/api/proxy/calculadora`}
           title="Calculadora Penal Oficial"
           className="w-full h-full border-none"
           sandbox="allow-scripts allow-same-origin allow-forms"
