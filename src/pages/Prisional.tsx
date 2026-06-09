@@ -235,7 +235,7 @@ export const Prisional: React.FC = () => {
       <div className="flex-1 w-full overflow-hidden">
         <iframe
           ref={iframeRef}
-          src="/api/proxy/calculadora"
+          src={`${import.meta.env.VITE_API_URL}/api/proxy/calculadora`}
           title="Calculadora Penal Oficial"
           className="w-full h-full border-none"
           sandbox="allow-scripts allow-same-origin allow-forms"
