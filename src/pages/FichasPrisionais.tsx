@@ -24,6 +24,8 @@ interface PrisonRecord {
   createdByName: string;
   createdByRole: string;
   createdAt: string;
+  participants?: { id: string; name: string; role: string }[];
+  ptrInfo?: { id: string; vtrNumber: string; viaturaName: string } | null;
 }
 
 const parseCrimes = (raw: string): string[] =>
@@ -78,7 +80,14 @@ export const FichasPrisionais: React.FC = () => {
   const handleCopy = async (rec: PrisonRecord) => {
     try {
       let t = `⚖️ **FICHA PRISIONAL - PMCC** ⚖️\n\n`;
-      t += `👤 **Nome:** ${rec.prisonerName}\n🆔 **Passaporte:** ${rec.passport}\n👮 **Captor:** ${rec.createdByName} (${getRankLabel(rec.createdByRole)})\n\n`;
+      t += `👤 **Nome:** ${rec.prisonerName}\n🆔 **Passaporte:** ${rec.passport}\n👮 **Captor Oficial:** ${rec.createdByName} (${getRankLabel(rec.createdByRole)})\n`;
+      if (rec.ptrInfo) {
+        t += `🚓 **Viatura:** ${rec.ptrInfo.vtrNumber} ${rec.ptrInfo.viaturaName ? `(${rec.ptrInfo.viaturaName})` : ''}\n`;
+      }
+      if (rec.participants && rec.participants.length > 0) {
+        t += `👥 **Guarnição:** ${rec.participants.map(p => p.name).join(', ')}\n`;
+      }
+      t += `\n`;
       t += `⏳ **Pena:** ${rec.penalty}\n💸 **Multa:** R$ ${Number(rec.fine).toLocaleString('pt-BR')}\n💰 **Fiança:** ${rec.bail}\n\n`;
       t += `📜 **Crimes:**\n${rec.crimes}\n\n`;
       if (rec.rawText)    t += `📝 **Relatório:**\n${rec.rawText}\n\n`;
@@ -189,10 +198,24 @@ export const FichasPrisionais: React.FC = () => {
         <div className="px-4 py-3 flex items-center justify-between border-t border-zinc-800 bg-zinc-950/80">
           <div className="min-w-0">
             <p className="text-xs text-zinc-300 font-semibold truncate">{rec.createdByName}</p>
-            <p className="text-[9px] text-zinc-500 font-mono flex items-center gap-1 mt-0.5 font-bold">
-              <Calendar className="w-2.5 h-2.5" />
-              {new Date(rec.createdAt).toLocaleDateString('pt-BR')}
-            </p>
+            <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+              <p className="text-[9px] text-zinc-500 font-mono flex items-center gap-1 font-bold">
+                <Calendar className="w-2.5 h-2.5" />
+                {new Date(rec.createdAt).toLocaleDateString('pt-BR')}
+              </p>
+              {rec.participants && rec.participants.length > 0 && (
+                <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-800 flex items-center gap-1">
+                  <Users className="w-2.5 h-2.5 text-emerald-500" />
+                  {rec.participants.length}
+                </span>
+              )}
+              {rec.ptrInfo && (
+                <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-800 flex items-center gap-1">
+                  <Shield className="w-2.5 h-2.5 text-amber-500" />
+                  {rec.ptrInfo.vtrNumber}
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <button
@@ -296,7 +319,7 @@ export const FichasPrisionais: React.FC = () => {
             {/* Captor info */}
             <div className="rounded-xl px-4 py-3 flex items-center justify-between bg-zinc-950/60 border border-zinc-800 shadow-sm">
               <div>
-                <p className="text-[9px] text-zinc-500 uppercase font-bold tracking-widest mb-0.5">@ CAPTOR</p>
+                <p className="text-[9px] text-zinc-500 uppercase font-bold tracking-widest mb-0.5">@ CAPTOR OFICIAL</p>
                 <p className="text-sm text-zinc-200 font-bold">{rec.createdByName}</p>
                 <p className="text-[10px] text-zinc-500 font-bold uppercase flex items-center gap-1.5 mt-0.5">
                   <RankIcon role={rec.createdByRole} className="w-5 h-5 text-zinc-500" />
@@ -309,6 +332,36 @@ export const FichasPrisionais: React.FC = () => {
                 <p className="text-[9px] text-zinc-600 font-mono font-bold">{new Date(rec.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
               </div>
             </div>
+
+            {/* Guarnição / PTR Info */}
+            {(rec.ptrInfo || (rec.participants && rec.participants.length > 0)) && (
+              <div className="rounded-xl px-4 py-3 bg-zinc-950/60 border border-zinc-800 shadow-sm">
+                <p className="text-[9px] text-zinc-500 uppercase font-bold tracking-widest mb-2 flex items-center gap-1.5">
+                  <Users className="w-3 h-3 text-emerald-500" />
+                  GUARNIÇÃO / ENVOLVIDOS
+                </p>
+                {rec.ptrInfo && (
+                  <div className="mb-2.5 flex items-center gap-2">
+                    <span className="px-2 py-1 rounded bg-amber-500/10 border border-amber-500/20 text-[10px] font-bold text-amber-500 flex items-center gap-1.5">
+                      <Shield className="w-3 h-3" />
+                      {rec.ptrInfo.vtrNumber} {rec.ptrInfo.viaturaName ? `(${rec.ptrInfo.viaturaName})` : ''}
+                    </span>
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  {rec.participants && rec.participants.length > 0 ? (
+                    rec.participants.map(p => (
+                      <span key={p.id} className="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded-md text-[10px] font-bold text-zinc-300 flex items-center gap-1.5">
+                        <RankIcon role={p.role} className="w-3 h-3 text-zinc-500" />
+                        {p.name}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-[10px] text-zinc-500 font-medium italic">Nenhum outro policial registrado.</span>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Relatório */}
             {rec.rawText && (

@@ -1,7 +1,18 @@
 import { Router, Request, Response, NextFunction } from "express";
+import { v2 as cloudinary } from "cloudinary";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || '',
+  api_key: process.env.CLOUDINARY_API_KEY || '',
+  api_secret: process.env.CLOUDINARY_API_SECRET || '',
+  secure: true
+});
 import { 
   db,
   collection, 
@@ -36,10 +47,9 @@ async function seedDefaultUser() {
         status: "active",
         createdAt: new Date().toISOString()
       });
-      console.log("[Firebase] Usuário Coronel semeado automaticamente: ID: 1 / Senha: admin123");
     }
-  } catch (error) {
-    console.error("Erro ao semear usuário Coronel padrão:", error);
+  } catch {
+    // Seed failure is non-fatal
   }
 }
 
@@ -50,8 +60,7 @@ function getJwtSecret(): string {
   if (process.env.JWT_SECRET) {
     return process.env.JWT_SECRET;
   }
-  // TODO(security): Set a persistent secret on production environment
-  console.warn("WARNING: Generating ephemeral JWT secret. Instance-isolated!");
+  // Fallback ephemeral secret — set JWT_SECRET env in production
   return crypto.randomBytes(32).toString('hex');
 }
 
@@ -76,7 +85,6 @@ async function getPermissionsMap(): Promise<Record<string, string[]>> {
       return docSnap.data() as Record<string, string[]>;
     }
   } catch (error) {
-    console.error("Erro ao carregar permissões do Firebase, usando padrões:", error);
   }
   return DEFAULT_PERMISSIONS;
 }
@@ -88,6 +96,7 @@ export interface AuthRequest extends Request {
     name: string;
     role: string;
     status: string;
+    isInstructor?: boolean;
   };
 }
 
@@ -137,7 +146,10 @@ export async function authMiddleware(req: AuthRequest, res: Response, next: Next
     }
     
     // Update req.user role in case of promotion
-    if (req.user) req.user.role = userData.role;
+    if (req.user) {
+      req.user.role = userData.role;
+      req.user.isInstructor = userData.isInstructor || false;
+    }
     next();
   } catch (err) {
     return res.status(401).json({ error: "Sessão expirada ou token inválido." });
@@ -155,6 +167,11 @@ export function checkPermission(permissionKey: string) {
     const userPermissions = permissions[req.user.role] || [];
 
     if (userPermissions.includes(permissionKey) || req.user.role === "coronel") {
+      return next();
+    }
+
+    // Permitir que instrutores acessem rotas de usuários para a Gestão de Alunos
+    if (permissionKey === "users" && req.user.isInstructor) {
       return next();
     }
 
@@ -199,6 +216,8 @@ router.post("/auth/register", async (req: Request, res: Response) => {
       ra: ra || "",
       responsible: responsible || "",
       status: initialStatus,
+      isInstructor: false,
+      courseTags: [],
       createdAt: new Date().toISOString()
     };
 
@@ -211,7 +230,6 @@ router.post("/auth/register", async (req: Request, res: Response) => {
         : "Cadastro realizado! Aguarde aprovação de um oficial." 
     });
   } catch (error: any) {
-    console.error("Register error:", error);
     return res.status(500).json({ error: "Erro interno no servidor." });
   }
 });
@@ -268,11 +286,14 @@ router.post("/auth/login", async (req: Request, res: Response) => {
         id: user.id,
         name: user.name,
         role: user.role,
-        status: user.status
+        status: user.status,
+        isInstructor: user.isInstructor || false,
+        courseTags: user.courseTags || [],
+        avatarUrl: user.avatarUrl || null,
+        coverUrl: user.coverUrl || null
       }
     });
   } catch (error) {
-    console.error("Login error:", error);
     return res.status(500).json({ error: "Erro interno no servidor." });
   }
 });
@@ -306,6 +327,36 @@ router.get("/permissions", authMiddleware, async (req: AuthRequest, res: Respons
   return res.json(permissions);
 });
 
+// --- Upload Genérico (Cloudinary) ---
+router.post("/upload", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { base64, oldUrl } = req.body;
+    if (!base64) return res.status(400).json({ error: "Imagem base64 é obrigatória." });
+    
+    // Upload nova imagem
+    const uploadResponse = await cloudinary.uploader.upload(base64, {
+      folder: "painel-policia",
+      resource_type: "image"
+    });
+
+    // Se houver uma imagem antiga para excluir
+    if (oldUrl && oldUrl.includes("cloudinary.com")) {
+      const parts = oldUrl.split("/");
+      const filename = parts[parts.length - 1];
+      const publicId = filename.split(".")[0];
+      const fullPublicId = `painel-policia/${publicId}`;
+      try {
+        await cloudinary.uploader.destroy(fullPublicId);
+      } catch (e) {
+      }
+    }
+
+    return res.json({ url: uploadResponse.secure_url });
+  } catch (error) {
+    return res.status(500).json({ error: "Erro interno no upload." });
+  }
+});
+
 router.post("/permissions/update", authMiddleware, checkPermission("permissions"), async (req: AuthRequest, res: Response) => {
   const { newPermissions } = req.body;
   if (!newPermissions) {
@@ -316,7 +367,6 @@ router.post("/permissions/update", authMiddleware, checkPermission("permissions"
     await setDoc(doc(db, "config", "permissions"), newPermissions);
     return res.json({ success: true, message: "Permissões atualizadas com sucesso!" });
   } catch (error) {
-    console.error("Error updating permissions:", error);
     return res.status(500).json({ error: "Erro ao salvar permissões no banco de dados." });
   }
 });
@@ -374,7 +424,6 @@ router.post("/exoneracoes", authMiddleware, checkPermission("exoneracoes"), asyn
 
     return res.json({ success: true, message: "Membro exonerado com sucesso." });
   } catch (error) {
-    console.error("Exoneration Error:", error);
     return res.status(500).json({ error: "Erro interno ao processar exoneração." });
   }
 });
@@ -434,6 +483,42 @@ router.post("/users/promote", authMiddleware, checkPermission("users"), async (r
     return res.json({ success: true, message: `Membro promovido para ${newRole}!` });
   } catch (error) {
     return res.status(500).json({ error: "Erro ao promover usuário." });
+  }
+});
+
+router.post("/users/toggle-instructor", authMiddleware, checkPermission("users"), async (req: AuthRequest, res: Response) => {
+  const { userId, isInstructor } = req.body;
+  if (!userId) return res.status(400).json({ error: "ID do usuário é obrigatório." });
+
+  try {
+    const userRef = doc(db, "users", userId);
+    await updateDoc(userRef, { isInstructor });
+    return res.json({ success: true, message: "Flag de instrutor atualizada!" });
+  } catch (error) {
+    return res.status(500).json({ error: "Erro ao atualizar instrutor." });
+  }
+});
+
+router.post("/users/profile", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { name, password, avatarUrl, coverUrl } = req.body;
+    const userId = req.user!.id;
+    
+    const userRef = doc(db, "users", userId);
+    const updates: any = {};
+    if (name) updates.name = name;
+    if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl;
+    if (coverUrl !== undefined) updates.coverUrl = coverUrl;
+    
+    if (password) {
+      const salt = await bcrypt.genSalt(10);
+      updates.password = await bcrypt.hash(password, salt);
+    }
+    
+    await updateDoc(userRef, updates);
+    return res.json({ success: true, message: "Perfil atualizado!" });
+  } catch (error) {
+    return res.status(500).json({ error: "Erro ao atualizar perfil." });
   }
 });
 
@@ -541,6 +626,28 @@ router.put("/absences/:id", authMiddleware, checkPermission("users"), async (req
     return res.json({ success: true, message: "Ausência atualizada com sucesso!" });
   } catch (error) {
     return res.status(500).json({ error: "Erro ao atualizar ausência." });
+  }
+});
+
+router.delete("/absences/:id", authMiddleware, async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+
+  try {
+    const docRef = doc(db, "absences", id);
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      return res.status(404).json({ error: "Ausência não encontrada." });
+    }
+
+    if (docSnap.data().userId !== req.user!.id) {
+      return res.status(403).json({ error: "Você só pode cancelar suas próprias solicitações." });
+    }
+
+    await deleteDoc(docRef);
+    return res.json({ success: true, message: "Solicitação cancelada com sucesso!" });
+  } catch (error) {
+    return res.status(500).json({ error: "Erro ao cancelar solicitação." });
   }
 });
 
@@ -653,42 +760,78 @@ router.post("/announcements", authMiddleware, checkPermission("users"), async (r
   }
 });
 
-// --- Comandos e Operadores ---
-router.get("/tactical-units", authMiddleware, checkPermission("comandos"), async (req: AuthRequest, res: Response) => {
+// --- Subdivisões ---
+router.get("/subdivisoes", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const querySnapshot = await getDocs(collection(db, "tactical_units"));
-    const units = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    
-    // Seed initial units if empty
-    if (units.length === 0) {
-      const initialUnits = [
-        { name: "COMANDO CORVO", subCommand: "Adam Clay #13763", operators: ["Texas #4474", "Henrique Lima #12327"] },
-        { name: "RUP-ROMEU", subCommand: "N/A", operators: ["Henrique Lima #12327"] },
-        { name: "COMANDO DE GPMOR/ROCAM", subCommand: "N/A", operators: ["Henrique Lima #12327"] },
-        { name: "COMANDO DE NEGOCIAÇÃO", subCommand: "Adam C #6189", operators: ["Henrique Lima #12327"] }
-      ];
-
-      for (const unit of initialUnits) {
-        await addDoc(collection(db, "tactical_units"), unit);
-      }
-      return res.json(initialUnits);
-    }
-    return res.json(units);
+    const querySnapshot = await getDocs(collection(db, "subdivisoes"));
+    const subdivisoes = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return res.json(subdivisoes);
   } catch (error) {
-    return res.status(500).json({ error: "Erro ao buscar comandos táticos." });
+    return res.status(500).json({ error: "Erro ao buscar subdivisões." });
   }
 });
 
-router.put("/tactical-units/:id", authMiddleware, checkPermission("users"), async (req: AuthRequest, res: Response) => {
-  const { id } = req.params;
-  const { subCommand, operators } = req.body;
+router.post("/subdivisoes", authMiddleware, async (req: AuthRequest, res: Response) => {
+  const { name, comandoId, comandoName } = req.body;
+  if (req.user?.role !== "coronel" && req.user?.role !== "tenente-coronel") {
+    return res.status(403).json({ error: "Apenas Coronel e Tenente-Coronel podem criar subdivisões." });
+  }
+  
+  if (!name || !comandoId || !comandoName) {
+    return res.status(400).json({ error: "Dados incompletos." });
+  }
 
   try {
-    const docRef = doc(db, "tactical_units", id);
-    await updateDoc(docRef, { subCommand, operators });
-    return res.json({ success: true, message: "Unidade tática atualizada!" });
+    const newSubdivisao = {
+      name,
+      comandoId,
+      comandoName,
+      cargos: [],
+      operators: [],
+      createdAt: new Date().toISOString()
+    };
+    const docRef = await addDoc(collection(db, "subdivisoes"), newSubdivisao);
+    return res.json({ id: docRef.id, ...newSubdivisao });
   } catch (error) {
-    return res.status(500).json({ error: "Erro ao atualizar unidade tática." });
+    return res.status(500).json({ error: "Erro ao criar subdivisão." });
+  }
+});
+
+router.put("/subdivisoes/:id", authMiddleware, async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const updates = req.body;
+  const user = req.user!;
+
+  try {
+    const docRef = doc(db, "subdivisoes", id);
+    const snap = await getDoc(docRef);
+    if (!snap.exists()) return res.status(404).json({ error: "Subdivisão não encontrada." });
+    
+    const data = snap.data();
+    const isHighRank = user.role === "coronel" || user.role === "tenente-coronel";
+    const isOwner = data.comandoId === user.id;
+
+    if (!isHighRank && !isOwner) {
+      return res.status(403).json({ error: "Apenas o comando desta subdivisão ou a alta cúpula podem modificá-la." });
+    }
+
+    await updateDoc(docRef, updates);
+    return res.json({ success: true, message: "Subdivisão atualizada!" });
+  } catch (error) {
+    return res.status(500).json({ error: "Erro ao atualizar subdivisão." });
+  }
+});
+
+router.delete("/subdivisoes/:id", authMiddleware, async (req: AuthRequest, res: Response) => {
+  if (req.user?.role !== "coronel" && req.user?.role !== "tenente-coronel") {
+    return res.status(403).json({ error: "Apenas Coronel e Tenente-Coronel podem deletar subdivisões." });
+  }
+  try {
+    const docRef = doc(db, "subdivisoes", req.params.id);
+    await deleteDoc(docRef);
+    return res.json({ success: true });
+  } catch (error) {
+    return res.status(500).json({ error: "Erro ao deletar subdivisão." });
   }
 });
 
@@ -744,13 +887,12 @@ router.get("/prisional", authMiddleware, checkPermission("prisional"), async (re
     const records = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     return res.json(records);
   } catch (error) {
-    console.error("Erro ao buscar registros prisionais:", error);
     return res.status(500).json({ error: "Erro ao buscar registros prisionais." });
   }
 });
 
 router.post("/prisional", authMiddleware, checkPermission("prisional"), async (req: AuthRequest, res: Response) => {
-  const { prisonerName, passport, crimes, penalty, fine, bail, rawText, imageUrl, evidenceUrl, rgUrl, quimicoUrl, residualUrl } = req.body;
+  const { prisonerName, passport, crimes, penalty, fine, bail, rawText, imageUrl, evidenceUrl, rgUrl, quimicoUrl, residualUrl, participants, ptrInfo } = req.body;
 
   if (!prisonerName || !passport) {
     return res.status(400).json({ error: "Nome do preso e Passaporte são obrigatórios." });
@@ -770,6 +912,8 @@ router.post("/prisional", authMiddleware, checkPermission("prisional"), async (r
       rgUrl: rgUrl || "",
       quimicoUrl: quimicoUrl || "",
       residualUrl: residualUrl || "",
+      participants: Array.isArray(participants) ? participants : [],
+      ptrInfo: ptrInfo || null,
       createdById: req.user!.id,
       createdByName: req.user!.name,
       createdByRole: req.user!.role,
@@ -777,7 +921,6 @@ router.post("/prisional", authMiddleware, checkPermission("prisional"), async (r
     });
     return res.json({ success: true, message: "Ficha prisional registrada com sucesso!" });
   } catch (error) {
-    console.error("Erro ao salvar ficha prisional:", error);
     return res.status(500).json({ error: "Erro ao salvar ficha prisional." });
   }
 });
@@ -790,13 +933,23 @@ router.get("/courses", authMiddleware, checkPermission("cursos"), async (req: Au
     const courses = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     return res.json(courses);
   } catch (error) {
-    console.error("Erro ao buscar cursos:", error);
     return res.status(500).json({ error: "Erro ao buscar cursos." });
   }
 });
 
 router.post("/courses", authMiddleware, checkPermission("users"), async (req: AuthRequest, res: Response) => {
   const { title, description, videoUrl, materialsUrl } = req.body;
+
+  const userRef = doc(db, "users", req.user!.id);
+  const userSnap = await getDoc(userRef);
+  const userData = userSnap.exists() ? userSnap.data() : null;
+  
+  const isCoronel = req.user!.role === 'coronel';
+  const isInstructor = userData?.isInstructor === true;
+  
+  if (!isCoronel || !isInstructor) {
+    return res.status(403).json({ error: "Apenas Coronel com permissão de Instrutor pode publicar cursos." });
+  }
 
   if (!title || !description) {
     return res.status(400).json({ error: "Título e descrição do curso são obrigatórios." });
@@ -814,8 +967,32 @@ router.post("/courses", authMiddleware, checkPermission("users"), async (req: Au
     });
     return res.json({ success: true, message: "Curso publicado com sucesso!" });
   } catch (error) {
-    console.error("Erro ao criar curso:", error);
     return res.status(500).json({ error: "Erro ao criar curso." });
+  }
+});
+
+router.post("/courses/:id/complete", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const docRef = doc(db, "courses", req.params.id);
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) return res.status(404).json({ error: "Curso não encontrado." });
+
+    const course = docSnap.data();
+    
+    const userRef = doc(db, "users", req.user!.id);
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) return res.status(404).json({ error: "Usuário não encontrado." });
+    
+    const userData = userSnap.data();
+    const tags = userData.courseTags || [];
+    
+    if (!tags.includes(course.title)) {
+      await updateDoc(userRef, { courseTags: [...tags, course.title] });
+    }
+    
+    return res.json({ success: true, message: "Curso concluído!" });
+  } catch (error) {
+    return res.status(500).json({ error: "Erro ao concluir curso." });
   }
 });
 
@@ -827,7 +1004,6 @@ router.get("/corregedoria/orientacoes", authMiddleware, checkPermission("correge
     const orientacoes = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     return res.json(orientacoes);
   } catch (error) {
-    console.error("Erro ao buscar orientações:", error);
     return res.status(500).json({ error: "Erro ao buscar orientações." });
   }
 });
@@ -850,7 +1026,6 @@ router.post("/corregedoria/orientacoes", authMiddleware, checkPermission("users"
     });
     return res.json({ success: true, message: "Orientação publicada com sucesso!" });
   } catch (error) {
-    console.error("Erro ao criar orientação:", error);
     return res.status(500).json({ error: "Erro ao criar orientação." });
   }
 });
@@ -909,7 +1084,6 @@ router.post("/ptrs/create", authMiddleware, checkPermission("relatorios"), async
     const docRef = await addDoc(collection(db, "active_ptrs"), newPtr);
     return res.json({ success: true, ptr: { id: docRef.id, ...newPtr } });
   } catch (error) {
-    console.error("Create PTR error:", error);
     return res.status(500).json({ error: "Erro ao criar VTR." });
   }
 });
@@ -1344,75 +1518,7 @@ router.delete("/informativos/:catId/items/:itemId", authMiddleware, checkPermiss
   }
 });
 
-// --- Armazenamento Temporário de Imagens e Rotas do Módulo Prisional ---
-const tempImages = new Map<string, string>();
-
-router.post("/prisional/temp-image", async (req: Request, res: Response) => {
-  try {
-    const { base64 } = req.body;
-    if (!base64) {
-      return res.status(400).json({ error: "Nenhuma imagem fornecida." });
-    }
-
-    // Validar formato base64 de imagem
-    if (!base64.startsWith("data:image/")) {
-      return res.status(400).json({ error: "Formato de arquivo inválido. Deve ser uma imagem base64." });
-    }
-
-    // Validar tamanho (máximo 5MB)
-    const sizeInBytes = Buffer.from(base64.split(",")[1] || "", "base64").length;
-    if (sizeInBytes > 5 * 1024 * 1024) {
-      return res.status(400).json({ error: "A imagem excede o limite de 5MB." });
-    }
-
-    const id = crypto.randomUUID();
-    tempImages.set(id, base64);
-
-    // Deletar da memória após 1 hora para evitar vazamento
-    setTimeout(() => {
-      tempImages.delete(id);
-    }, 60 * 60 * 1000);
-
-    const protocol = req.headers["x-forwarded-proto"] || req.protocol;
-    const host = req.get("host");
-    const url = `${protocol}://${host}/api/prisional/temp-image/${id}`;
-
-    return res.json({ success: true, url });
-  } catch (error) {
-    console.error("Erro ao processar imagem temporária:", error);
-    return res.status(500).json({ error: "Erro interno do servidor." });
-  }
-});
-
-router.get("/prisional/temp-image/:id", (req: Request, res: Response) => {
-  const { id } = req.params;
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (!uuidRegex.test(id)) {
-    return res.status(400).send("ID inválido.");
-  }
-
-  const base64 = tempImages.get(id);
-  if (!base64) {
-    return res.status(404).send("Imagem expirada ou não encontrada.");
-  }
-
-  try {
-    const matches = base64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-    if (!matches || matches.length !== 3) {
-      return res.status(400).send("Formato de imagem inválido.");
-    }
-    const mimeType = matches[1];
-    const buffer = Buffer.from(matches[2], "base64");
-    
-    res.setHeader("Content-Type", mimeType);
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("Cache-Control", "public, max-age=3600");
-    return res.send(buffer);
-  } catch (error) {
-    console.error("Erro ao renderizar imagem temporária:", error);
-    return res.status(500).send("Erro interno.");
-  }
-});
+// --- Servidor de Imagens Antigas do Módulo Prisional ---
 
 const sendPrisonRecordImage = async (req: Request, res: Response, fieldName: string, errorMsg: string) => {
   try {
@@ -1436,8 +1542,7 @@ const sendPrisonRecordImage = async (req: Request, res: Response, fieldName: str
     res.setHeader("Content-Type", mimeType);
     res.setHeader("X-Content-Type-Options", "nosniff");
     return res.send(buffer);
-  } catch (error) {
-    console.error(`Erro ao recuperar imagem (${fieldName}):`, error);
+  } catch {
     return res.status(500).send("Erro interno ao carregar imagem.");
   }
 };
@@ -1465,7 +1570,24 @@ router.get("/prisional/:id/image/residual", async (req: Request, res: Response) 
 // --- Proxy da Calculadora Burp ---
 router.get("/proxy/calculadora", async (req: Request, res: Response) => {
   try {
-    const response = await fetch("https://burp.com.br/calculadora/");
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    const response = await fetch("https://burp.com.br/calculadora/", {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+      }
+    });
+    
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`Servidor retornou status ${response.status}`);
+    }
+
     let html = await response.text();
 
     // Rewrite relative paths in HTML to absolute paths pointing to burp.com.br/calculadora/
@@ -1580,9 +1702,12 @@ router.get("/proxy/calculadora", async (req: Request, res: Response) => {
                   reader.readAsDataURL(file);
                 });
 
-                const res = await fetch('/api/prisional/temp-image', {
+                const res = await fetch('/api/upload', {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
+                  headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + document.cookie.split('token=')[1]?.split(';')[0]
+                  },
                   body: JSON.stringify({ base64 })
                 });
                 if (res.ok) {
@@ -1590,7 +1715,6 @@ router.get("/proxy/calculadora", async (req: Request, res: Response) => {
                   fileUrls[key] = data.url;
                 }
               } catch (e) {
-                console.error("Erro ao subir imagem para link temporário:", e);
               }
             }
 
@@ -1625,7 +1749,6 @@ router.get("/proxy/calculadora", async (req: Request, res: Response) => {
             await navigator.clipboard.writeText(text);
             showToast('Ficha completa copiada!', 'success');
           } catch (err) {
-            console.error("Erro ao copiar ficha:", err);
             showToast('Erro ao copiar: ' + err.message, 'error');
           } finally {
             if (btnCopy) {
@@ -1642,8 +1765,45 @@ router.get("/proxy/calculadora", async (req: Request, res: Response) => {
     res.setHeader("Content-Type", "text/html");
     res.send(html);
   } catch (error) {
-    console.error("Erro no proxy da calculadora:", error);
-    res.status(500).send("Erro ao carregar a calculadora.");
+    res.setHeader("Content-Type", "text/html");
+    res.send(`
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body { 
+            background-color: #09090b; 
+            color: #f4f4f5; 
+            font-family: sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0; 
+            text-align: center;
+          }
+          .container {
+            background: rgba(244, 63, 94, 0.1);
+            border: 1px solid rgba(244, 63, 94, 0.2);
+            padding: 2rem;
+            border-radius: 1rem;
+            max-width: 400px;
+          }
+          h2 { color: #f43f5e; margin-top: 0; }
+          p { color: #a1a1aa; font-size: 0.9rem; line-height: 1.5; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h2>Calculadora Indisponível</h2>
+          <p>Não foi possível conectar ao servidor da calculadora (burp.com.br).</p>
+          <p>O servidor original pode estar offline ou bloqueando conexões no momento. Tente novamente mais tarde.</p>
+        </div>
+      </body>
+      </html>
+    `);
   }
 });
 
@@ -1656,11 +1816,79 @@ router.get("/posts", authMiddleware, async (req: AuthRequest, res: Response) => 
     const postsRef = collection(db, "posts");
     const snapshot = await getDocs(query(postsRef, orderBy("createdAt", "desc")));
     
-    const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const usersSnap = await getDocs(collection(db, "users"));
+    const usersMap = new Map();
+    usersSnap.forEach(u => {
+      const d = u.data();
+      usersMap.set(u.id, {
+        avatarUrl: d.avatarUrl || null,
+        coverUrl: d.coverUrl || null
+      });
+    });
+    
+    const posts = snapshot.docs.map(doc => {
+      const data = doc.data();
+      const authorInfo = usersMap.get(data.authorId) || {};
+      return { 
+        id: doc.id, 
+        ...data,
+        authorAvatarUrl: authorInfo.avatarUrl,
+        authorCoverUrl: authorInfo.coverUrl,
+        comments: (data.comments || []).map((c: any) => {
+          const commentAuthorInfo = usersMap.get(c.authorId) || {};
+          return {
+            ...c,
+            authorAvatarUrl: commentAuthorInfo.avatarUrl,
+            authorCoverUrl: commentAuthorInfo.coverUrl
+          };
+        })
+      };
+    });
     res.json(posts);
   } catch (error) {
-    console.error("Erro ao buscar posts:", error);
     res.status(500).json({ error: "Erro interno ao buscar posts" });
+  }
+});
+
+router.get("/posts/public/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const postRef = doc(db, "posts", id);
+    const postSnap = await getDoc(postRef);
+    
+    if (!postSnap.exists()) {
+      return res.status(404).json({ error: "Clipe não encontrado" });
+    }
+
+    const data = postSnap.data();
+    
+    // Fetch author info to get avatar and cover
+    const authorRef = doc(db, "users", data.authorId);
+    const authorSnap = await getDoc(authorRef);
+    let authorInfo = { avatarUrl: null, coverUrl: null };
+    
+    if (authorSnap.exists()) {
+      const ad = authorSnap.data();
+      authorInfo = { avatarUrl: ad.avatarUrl || null, coverUrl: ad.coverUrl || null };
+    }
+
+    const publicPost = {
+      id: postSnap.id,
+      videoUrl: data.videoUrl,
+      description: data.description,
+      authorName: data.authorName,
+      authorRole: data.authorRole,
+      authorAvatarUrl: authorInfo.avatarUrl,
+      authorCoverUrl: authorInfo.coverUrl,
+      createdAt: data.createdAt,
+      likesCount: (data.likes || []).length,
+      commentsCount: (data.comments || []).length,
+      comments: data.comments || []
+    };
+
+    res.json(publicPost);
+  } catch (error) {
+    res.status(500).json({ error: "Erro interno" });
   }
 });
 
@@ -1688,7 +1916,6 @@ router.post("/posts", authMiddleware, async (req: AuthRequest, res: Response) =>
     
     res.json({ id: docRef.id, ...postData });
   } catch (error) {
-    console.error("Erro ao criar post:", error);
     res.status(500).json({ error: "Erro interno ao criar post" });
   }
 });
@@ -1721,7 +1948,6 @@ router.post("/posts/:id/like", authMiddleware, async (req: AuthRequest, res: Res
     await updateDoc(postRef, { likes });
     res.json({ likes });
   } catch (error) {
-    console.error("Erro ao dar like:", error);
     res.status(500).json({ error: "Erro interno ao dar like" });
   }
 });
@@ -1759,8 +1985,103 @@ router.post("/posts/:id/comments", authMiddleware, async (req: AuthRequest, res:
     
     res.json(newComment);
   } catch (error) {
-    console.error("Erro ao comentar:", error);
     res.status(500).json({ error: "Erro interno ao adicionar comentário" });
+  }
+});
+
+// --- Módulo de Chat ---
+router.get("/chat", authMiddleware, checkPermission("chat"), async (req: AuthRequest, res: Response) => {
+  try {
+    const q = query(collection(db, "chat_messages"), orderBy("createdAt", "desc"), limit(100));
+    const querySnapshot = await getDocs(q);
+    const messages = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).reverse();
+    
+    const userRef = doc(db, "users", req.user!.id);
+    const userSnap = await getDoc(userRef);
+    const mutedUntil = userSnap.exists() ? (userSnap.data().mutedUntil || 0) : 0;
+
+    return res.json({ messages, mutedUntil });
+  } catch (error) {
+    return res.status(500).json({ error: "Erro ao carregar chat." });
+  }
+});
+
+router.post("/chat", authMiddleware, checkPermission("chat"), async (req: AuthRequest, res: Response) => {
+  const { text, imageUrl } = req.body;
+  if ((!text || !text.trim()) && !imageUrl) return res.status(400).json({ error: "Mensagem vazia." });
+
+  try {
+    const userRef = doc(db, "users", req.user!.id);
+    const userSnap = await getDoc(userRef);
+    const mutedUntil = userSnap.exists() ? (userSnap.data().mutedUntil || 0) : 0;
+    
+    if (Date.now() < mutedUntil) {
+      return res.status(403).json({ error: "Você está silenciado." });
+    }
+
+    const newMessage: any = {
+      userId: req.user!.id,
+      authorName: req.user!.name,
+      authorRole: req.user!.role,
+      authorAvatarUrl: userSnap.exists() ? (userSnap.data().avatarUrl || null) : null,
+      createdAt: new Date().toISOString()
+    };
+
+    if (text && text.trim()) newMessage.text = text.trim();
+    if (imageUrl) newMessage.imageUrl = imageUrl;
+
+    const docRef = await addDoc(collection(db, "chat_messages"), newMessage);
+    return res.json({ id: docRef.id, ...newMessage });
+  } catch (error) {
+    return res.status(500).json({ error: "Erro ao enviar mensagem." });
+  }
+});
+
+router.delete("/chat/:id", authMiddleware, checkPermission("chat"), async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+
+  try {
+    const docRef = doc(db, "chat_messages", id);
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      return res.status(404).json({ error: "Mensagem não encontrada." });
+    }
+
+    const isOwner = docSnap.data().userId === req.user!.id;
+    const isOfficer = req.user!.role === 'coronel' || req.user!.role === 'tenente-coronel';
+
+    if (!isOwner && !isOfficer) {
+      return res.status(403).json({ error: "Você não tem permissão para apagar esta mensagem." });
+    }
+
+    await deleteDoc(docRef);
+    return res.json({ success: true, message: "Mensagem excluída." });
+  } catch (error) {
+    return res.status(500).json({ error: "Erro ao excluir mensagem." });
+  }
+});
+
+router.post("/chat/mute", authMiddleware, checkPermission("users"), async (req: AuthRequest, res: Response) => {
+  const { targetUserId, durationMs } = req.body;
+  
+  if (!targetUserId || !durationMs) {
+    return res.status(400).json({ error: "Dados inválidos." });
+  }
+
+  try {
+    const targetUserRef = doc(db, "users", targetUserId);
+    const targetSnap = await getDoc(targetUserRef);
+    if (!targetSnap.exists()) {
+      return res.status(404).json({ error: "Usuário não encontrado." });
+    }
+
+    const mutedUntil = Date.now() + Number(durationMs);
+    await updateDoc(targetUserRef, { mutedUntil });
+
+    return res.json({ success: true, message: "Usuário silenciado com sucesso.", mutedUntil });
+  } catch (error) {
+    return res.status(500).json({ error: "Erro ao silenciar usuário." });
   }
 });
 

@@ -1,11 +1,9 @@
-import React from 'react';
-import { NavLink } from 'react-router-dom';
+import React, { useState } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
   LayoutDashboard, 
-  Radio, 
   FileText, 
-  Calculator, 
   CalendarX, 
   Users, 
   BookOpen, 
@@ -13,14 +11,13 @@ import {
   UserCog, 
   LogOut, 
   Shield, 
-  Menu, 
   X,
-  FileQuestion,
   ShieldAlert,
   Archive,
   BarChart2,
   PlaySquare,
-  UserMinus
+  UserMinus,
+  MessageSquare
 } from 'lucide-react';
 
 import { RankIcon } from './RankIcon';
@@ -32,6 +29,8 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
   const { user, logout, hasPermission } = useAuth();
+  const [showTooltip, setShowTooltip] = useState(false);
+  const navigate = useNavigate();
 
   const getRankBadgeColor = (role: string) => {
     switch (role) {
@@ -88,7 +87,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
     { path: '/fichas', label: 'Histórico Prisional', icon: Archive, permission: 'prisional' },
     { path: '/relatorios', label: 'PTR', icon: FileText, permission: 'relatorios' },
     { path: '/ausencias', label: 'Ausências', icon: CalendarX, permission: 'ausencias' },
-    { path: '/comandos', label: 'Comandos & Operadores', icon: Users, permission: 'comandos' },
+    { path: '/subdivisoes', label: 'Subdivisões', icon: Users, permission: 'comandos' },
     { path: '/corregedoria', label: 'Corregedoria Interna', icon: ShieldAlert, permission: 'corregedoria' },
     { path: '/cursos', label: 'Cursos & Apostilas', icon: BookOpen, permission: 'cursos' },
     { path: '/informativos', label: 'Informativos', icon: BookOpen, permission: 'informativos' },
@@ -96,11 +95,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
     { path: '/exoneracoes', label: 'Exonerações', icon: UserMinus, permission: 'exoneracoes' },
     { path: '/permissoes', label: 'Permissões de Acesso', icon: KeyRound, permission: 'permissions' },
     { path: '/metricas', label: 'Métricas da Corporação', icon: BarChart2, permission: 'metrics' },
-    { path: '/social', label: 'Comunidade & Clipes', icon: PlaySquare, permission: 'dashboard' }
+    { path: '/social', label: 'Comunidade & Clipes', icon: PlaySquare, permission: 'social' },
+    { path: '/chat', label: 'Bate-Papo da Corporação', icon: MessageSquare, permission: 'chat' }
   ];
 
   const visibleMenuItems = menuItems.filter(item => {
-    if (item.path === '/usuarios') {
+    // Permissões de acesso sempre restrito para Coronel / Tenente-Coronel por segurança de elevação de privilégios.
+    if (item.path === '/permissoes') {
       return user?.role === 'coronel' || user?.role === 'tenente-coronel';
     }
     return hasPermission(item.permission);
@@ -166,11 +167,46 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
 
         {/* User Footer Panel */}
         {user && (
-          <div className="p-4 border-t border-zinc-900 bg-zinc-950">
-            <div className="flex items-center justify-between gap-3 p-2 rounded-xl bg-zinc-900/50 border border-zinc-800">
+          <div 
+            className="p-4 border-t border-zinc-900 bg-zinc-950 relative"
+            onMouseEnter={() => setShowTooltip(true)}
+            onMouseLeave={() => setShowTooltip(false)}
+          >
+            {showTooltip && (
+              <div className="absolute bottom-[4.5rem] left-4 w-56 bg-zinc-800 border border-zinc-700 rounded-xl shadow-[0_-5px_25px_rgba(0,0,0,0.5)] p-3 animate-in fade-in zoom-in-95 duration-100 z-50">
+                <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">Cursos & Especializações</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {user.courseTags && user.courseTags.length > 0 ? (
+                    user.courseTags.map((tag, idx) => (
+                      <span key={idx} className="inline-flex items-center px-1.5 py-0.5 rounded bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-[9px] font-bold">
+                        {tag}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-zinc-500 text-[10px] italic">Nenhum curso concluído</span>
+                  )}
+                </div>
+              </div>
+            )}
+            <div className="flex items-center justify-between gap-3 p-2 rounded-xl bg-zinc-900/50 border border-zinc-800 relative group">
               <div className="flex items-center gap-2.5 overflow-hidden">
-                <div className="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center text-sm font-bold text-zinc-300 border border-zinc-700 uppercase">
-                  {user.name.charAt(0)}
+                <div className="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center text-sm font-bold text-zinc-300 border border-zinc-700 uppercase overflow-hidden relative">
+                  {user.avatarUrl ? (
+                    <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    user.name.charAt(0)
+                  )}
+                  {/* Botão flutuante para edição rápida (aparece no hover da foto) */}
+                  <button 
+                    onClick={() => {
+                      if (window.innerWidth < 1024) toggleSidebar();
+                      navigate('/perfil');
+                    }}
+                    className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Editar Perfil"
+                  >
+                    <UserCog className="w-4 h-4 text-white" />
+                  </button>
                 </div>
                 <div className="overflow-hidden flex flex-col items-start">
                   <h4 className="text-xs font-semibold text-zinc-200 truncate">{user.name}</h4>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { CalendarX, Check, X, RefreshCw, Send, AlertTriangle, CheckCircle, Calendar, CalendarDays } from 'lucide-react';
+import { CalendarX, Check, X, RefreshCw, Send, AlertTriangle, CheckCircle, Calendar, CalendarDays, Trash2 } from 'lucide-react';
 import { RankIcon } from '../components/RankIcon';
 
 interface AbsenceRequest {
@@ -28,6 +28,7 @@ export const Ausencias: React.FC = () => {
   const [fetching, setFetching] = useState(true);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
+  const [cancelModal, setCancelModal] = useState<{ isOpen: boolean, absenceId: string }>({ isOpen: false, absenceId: '' });
 
   const fetchAbsences = async () => {
     try {
@@ -38,7 +39,6 @@ export const Ausencias: React.FC = () => {
         setRequests(data);
       }
     } catch (err) {
-      console.error('Erro ao buscar ausências:', err);
     } finally {
       setFetching(false);
     }
@@ -111,7 +111,27 @@ export const Ausencias: React.FC = () => {
         alert(data.error || 'Erro ao processar solicitação.');
       }
     } catch (err) {
-      console.error('Erro ao atualizar ausência:', err);
+    }
+  };
+
+  const confirmCancel = async () => {
+    try {
+      const response = await fetch(`/api/absences/${cancelModal.absenceId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        setCancelModal({ isOpen: false, absenceId: '' });
+        await fetchAbsences();
+        setSuccess('Solicitação cancelada com sucesso.');
+        setTimeout(() => setSuccess(''), 4000);
+      } else {
+        const data = await response.json();
+        setError(data.error || 'Erro ao cancelar.');
+        setTimeout(() => setError(''), 4000);
+      }
+    } catch (err) {
+      setError('Erro de conexão ao cancelar.');
     }
   };
 
@@ -169,6 +189,32 @@ export const Ausencias: React.FC = () => {
       {success && (
         <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl text-sm font-bold flex items-center gap-3 shadow-[0_0_15px_rgba(16,185,129,0.1)] animate-in zoom-in-95">
           <CheckCircle className="w-5 h-5 text-emerald-500"/> {success}
+        </div>
+      )}
+
+      {/* Cancel Modal */}
+      {cancelModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setCancelModal({ isOpen: false, absenceId: '' })}>
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl flex flex-col gap-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-rose-500/10 flex items-center justify-center border border-rose-500/20">
+                <AlertTriangle className="w-5 h-5 text-rose-500" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-100">Cancelar Solicitação</h3>
+                <p className="text-xs text-slate-400">Esta ação não pode ser desfeita.</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-300">Tem certeza que deseja cancelar e apagar esta solicitação de ausência?</p>
+            <div className="flex justify-end gap-3 mt-2">
+              <button onClick={() => setCancelModal({ isOpen: false, absenceId: '' })} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-300 hover:bg-slate-800 transition-colors">
+                Manter Pedido
+              </button>
+              <button onClick={confirmCancel} className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 transition-colors shadow-lg shadow-rose-900/20">
+                Sim, Cancelar
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -308,6 +354,16 @@ export const Ausencias: React.FC = () => {
 
                   <div className="flex flex-row sm:flex-col items-center sm:items-end gap-3 w-full sm:w-auto justify-between sm:justify-start pt-4 sm:pt-0 border-t sm:border-t-0 border-slate-800">
                     {getStatusBadge(req.status)}
+
+                    {req.userId === user?.id && (
+                      <button
+                        onClick={() => setCancelModal({ isOpen: true, absenceId: req.id })}
+                        className="px-4 py-2.5 rounded-xl bg-slate-800/50 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 font-bold text-xs border border-slate-700 hover:border-rose-500/30 transition-all shadow-sm flex items-center gap-1.5"
+                        title="Cancelar Solicitação"
+                      >
+                        <Trash2 className="w-4 h-4" /> Cancelar
+                      </button>
+                    )}
 
                     {isOfficer && req.status === 'pending' && (
                       <div className="flex gap-2">

@@ -124,7 +124,6 @@ export const RelatoriosOcorrencias: React.FC = () => {
       }
       if (vtrRes.ok) setViaturas(await vtrRes.json());
     } catch (err) {
-      console.error('Erro ao buscar dados:', err);
     } finally {
       setFetching(false);
     }
@@ -1026,15 +1025,15 @@ export const RelatoriosOcorrencias: React.FC = () => {
         </div>
       </div>
 
-      {/* Alerts */}
+      {/* Toast Alerts */}
       {error && (
-        <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl text-sm font-bold flex items-center gap-3 animate-in slide-in-from-top-2">
-          <AlertTriangle className="w-5 h-5 text-rose-500"/> {error}
+        <div className="fixed bottom-6 right-6 px-6 py-3 bg-rose-500/10 border border-rose-500/20 text-rose-500 shadow-2xl rounded-xl text-xs font-bold tracking-widest flex items-center gap-2 animate-in slide-in-from-bottom-5 z-[9999]">
+          <AlertTriangle className="w-4 h-4"/> {error}
         </div>
       )}
       {success && (
-        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl text-sm font-bold flex items-center gap-3 animate-in slide-in-from-top-2">
-          <CheckCircle className="w-5 h-5 text-emerald-500"/> {success}
+        <div className="fixed bottom-6 right-6 px-6 py-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 shadow-2xl rounded-xl text-xs font-bold tracking-widest flex items-center gap-2 animate-in slide-in-from-bottom-5 z-[9999]">
+          <CheckCircle className="w-4 h-4"/> {success}
         </div>
       )}
 

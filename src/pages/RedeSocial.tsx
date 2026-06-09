@@ -10,6 +10,8 @@ interface Comment {
   authorId: string;
   authorName: string;
   authorRole: string;
+  authorAvatarUrl?: string;
+  authorCoverUrl?: string;
   createdAt: string;
 }
 
@@ -20,10 +22,123 @@ interface Post {
   authorId: string;
   authorName: string;
   authorRole: string;
+  authorAvatarUrl?: string;
+  authorCoverUrl?: string;
   likes: string[];
   comments: Comment[];
   createdAt: string;
 }
+
+import { createPortal } from 'react-dom';
+
+const getLocalRankLabel = (role: string) => {
+  const roles: Record<string, string> = {
+    'coronel': 'Coronel',
+    'tenente-coronel': 'Ten. Coronel',
+    'major': 'Major',
+    'capitao': 'Capitão',
+    '1-tenente': '1º Tenente',
+    '2-tenente': '2º Tenente',
+    'aspirante': 'Aspirante',
+    'subtenente': 'Subtenente',
+    '1-sargento': '1º Sargento',
+    '2-sargento': '2º Sargento',
+    '3-sargento': '3º Sargento',
+    'cabo': 'Cabo',
+    'soldado': 'Soldado',
+    'aluno': 'Aluno Soldado'
+  };
+  return roles[role] || role || 'Militar';
+};
+
+export const UserHoverCard: React.FC<{
+  authorName: string;
+  authorRole: string;
+  avatarUrl?: string;
+  coverUrl?: string;
+  tags?: string[];
+  children: React.ReactNode;
+}> = ({ authorName, authorRole, avatarUrl, coverUrl, tags = [], children }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const wrapperRef = React.useRef<HTMLDivElement>(null);
+  const timeoutRef = React.useRef<NodeJS.Timeout>();
+
+  const handleMouseEnter = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (wrapperRef.current) {
+      const rect = wrapperRef.current.getBoundingClientRect();
+      setCoords({
+        top: rect.top, // position above the element
+        left: rect.left + rect.width / 2
+      });
+      setIsHovered(true);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    timeoutRef.current = setTimeout(() => {
+      setIsHovered(false);
+    }, 100); // slight delay to allow moving mouse into the popover if needed (though it's pointer-events-none right now)
+  };
+
+  return (
+    <div 
+      className="relative flex items-center justify-center cursor-help"
+      ref={wrapperRef}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      {children}
+      
+      {isHovered && createPortal(
+        <div 
+          className="fixed z-[9999] pointer-events-none transition-opacity duration-200"
+          style={{ 
+            top: coords.top - 8, // 8px spacing
+            left: coords.left,
+            transform: 'translate(-50%, -100%)' // center horizontally, above the element
+          }}
+        >
+          {/* Card Content */}
+          <div className="w-56 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="h-16 bg-zinc-900 border-b border-zinc-800">
+              {coverUrl ? (
+                <img src={coverUrl} alt="Cover" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-tr from-zinc-900 to-zinc-800" />
+              )}
+            </div>
+            <div className="px-4 pb-4 pt-0 relative flex flex-col items-center">
+              <div className="w-14 h-14 rounded-xl bg-zinc-800 border-[3px] border-zinc-950 -mt-7 flex items-center justify-center overflow-hidden shadow-lg z-10 bg-zinc-950">
+                 {avatarUrl ? (
+                   <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                 ) : (
+                   <RankIcon role={authorRole} className="w-7 h-7 text-zinc-500" />
+                 )}
+              </div>
+              <div className="text-center mt-2 w-full">
+                <h4 className="font-bold text-zinc-100 text-sm truncate w-full">{authorName}</h4>
+                <span className="text-[9px] text-yellow-500 uppercase font-black tracking-widest block mt-0.5">{getLocalRankLabel(authorRole)}</span>
+                
+                {tags.length > 0 && (
+                  <div className="flex flex-wrap items-center justify-center gap-1.5 mt-3">
+                    {tags.map((tag, i) => (
+                      <span key={i} className="px-2 py-0.5 text-[8px] rounded border bg-indigo-900/30 text-indigo-400 border-indigo-700/50 uppercase font-bold tracking-widest truncate max-w-full">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+};
 
 export const RedeSocial: React.FC = () => {
   const { user } = useAuth();
@@ -36,6 +151,7 @@ export const RedeSocial: React.FC = () => {
   const [newVideoUrl, setNewVideoUrl] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [subdivisaoMap, setSubdivisaoMap] = useState<Record<string, string[]>>({});
 
   // Comment State
   const [activeCommentPost, setActiveCommentPost] = useState<string | null>(null);
@@ -49,30 +165,31 @@ export const RedeSocial: React.FC = () => {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Fallback getRankLabel locally (como no resto do sistema)
-  const getLocalRankLabel = (role: string) => {
-    const roles: Record<string, string> = {
-      'coronel': 'Coronel',
-      'tenente-coronel': 'Ten. Coronel',
-      'major': 'Major',
-      'capitao': 'Capitão',
-      '1-tenente': '1º Tenente',
-      '2-tenente': '2º Tenente',
-      'aspirante': 'Aspirante',
-      'subtenente': 'Subtenente',
-      '1-sargento': '1º Sargento',
-      '2-sargento': '2º Sargento',
-      '3-sargento': '3º Sargento',
-      'cabo': 'Cabo',
-      'soldado': 'Soldado',
-      'aluno': 'Aluno Soldado'
-    };
-    return roles[role] || role || 'Militar';
-  };
-
   useEffect(() => {
     fetchPosts();
+    fetchSubdivisoes();
   }, []);
+
+  const fetchSubdivisoes = async () => {
+    try {
+      const res = await fetch('/api/subdivisoes');
+      if (res.ok) {
+        const subdivisoes = await res.json();
+        const map: Record<string, string[]> = {};
+        subdivisoes.forEach((sub: any) => {
+          sub.operators.forEach((op: any) => {
+            if (!map[op.userId]) map[op.userId] = [];
+            map[op.userId].push(sub.name);
+          });
+          if (sub.comandoId) {
+            if (!map[sub.comandoId]) map[sub.comandoId] = [];
+            if (!map[sub.comandoId].includes(sub.name)) map[sub.comandoId].push(sub.name);
+          }
+        });
+        setSubdivisaoMap(map);
+      }
+    } catch (err) {}
+  };
 
   const fetchPosts = async () => {
     try {
@@ -126,10 +243,7 @@ export const RedeSocial: React.FC = () => {
       }));
 
       await fetch(`/api/posts/${postId}/like`, { method: 'POST' });
-      // Reload is not strictly needed if optimistic update works, but to sync with others:
-      fetchPosts();
     } catch (error) {
-      console.error(error);
     }
   };
 
@@ -147,7 +261,6 @@ export const RedeSocial: React.FC = () => {
         fetchPosts();
       }
     } catch (err) {
-      console.error(err);
     }
   };
 
@@ -289,11 +402,24 @@ export const RedeSocial: React.FC = () => {
               <div key={post.id} className="glass-panel border border-zinc-800/80 rounded-2xl overflow-hidden bg-zinc-950/60 shadow-lg">
                 {/* Post Header */}
                 <div className="p-4 flex items-center justify-between border-b border-zinc-800/50 bg-zinc-900/40">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center shadow-inner">
-                      <RankIcon role={post.authorRole} className="w-6 h-6 text-zinc-400" />
-                    </div>
-                    <div>
+                  <div className="flex-1">
+                    <UserHoverCard 
+                      authorName={post.authorName} 
+                      authorRole={post.authorRole} 
+                      avatarUrl={post.authorAvatarUrl} 
+                      coverUrl={post.authorCoverUrl}
+                      tags={subdivisaoMap[post.authorId] || []}
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center shadow-inner overflow-hidden flex-shrink-0">
+                        {post.authorAvatarUrl ? (
+                          <img src={post.authorAvatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                        ) : (
+                          <RankIcon role={post.authorRole} className="w-6 h-6 text-zinc-400" />
+                        )}
+                      </div>
+                    </UserHoverCard>
+                  </div>
+                  <div>
                       <h4 className="font-bold text-zinc-200 text-sm">{post.authorName}</h4>
                       <div className="flex items-center gap-2 text-[10px] uppercase font-bold tracking-widest">
                         <span className="text-yellow-400">{getLocalRankLabel(post.authorRole)}</span>
@@ -303,7 +429,6 @@ export const RedeSocial: React.FC = () => {
                         </span>
                       </div>
                     </div>
-                  </div>
                 </div>
 
                 {/* Post Content (Video + Text) */}
@@ -340,7 +465,8 @@ export const RedeSocial: React.FC = () => {
 
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(post.videoUrl);
+                      const link = `${window.location.origin}/clipe/${post.id}`;
+                      navigator.clipboard.writeText(link);
                       showToast("Link do clipe copiado com sucesso!");
                     }}
                     className="flex items-center gap-2 text-sm font-bold text-zinc-400 hover:text-yellow-400 transition-colors ml-auto"
@@ -359,13 +485,31 @@ export const RedeSocial: React.FC = () => {
                       ) : (
                         post.comments.map(c => (
                           <div key={c.id} className="flex gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">
-                              <RankIcon role={c.authorRole} className="w-5 h-5 text-zinc-500" />
-                            </div>
+                            <UserHoverCard 
+                              authorName={c.authorName} 
+                              authorRole={c.authorRole} 
+                              avatarUrl={c.authorAvatarUrl} 
+                              coverUrl={c.authorCoverUrl}
+                              tags={subdivisaoMap[c.authorId] || []}
+                            >
+                              <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0 overflow-hidden">
+                                {c.authorAvatarUrl ? (
+                                  <img src={c.authorAvatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                                ) : (
+                                  <RankIcon role={c.authorRole} className="w-5 h-5 text-zinc-500" />
+                                )}
+                              </div>
+                            </UserHoverCard>
                             <div className="bg-zinc-900/50 p-3 rounded-2xl rounded-tl-none border border-zinc-800/80 flex-1">
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="font-bold text-zinc-200 text-xs">{c.authorName}</span>
-                                <span className="text-[9px] text-zinc-500 uppercase font-bold tracking-wider">{getLocalRankLabel(c.authorRole)}</span>
+                                <span className="text-[9px] text-zinc-400 uppercase font-bold tracking-wider flex items-center gap-1 bg-zinc-900/80 px-2 py-0.5 rounded-md border border-zinc-800">
+                                  <RankIcon role={c.authorRole} className="w-3 h-3 text-yellow-500" />
+                                  {getLocalRankLabel(c.authorRole)}
+                                </span>
+                                <span className="text-[9px] text-zinc-600 ml-auto font-medium">
+                                  {new Date(c.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} às {new Date(c.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
                               </div>
                               <p className="text-xs text-zinc-300">{c.text}</p>
                             </div>

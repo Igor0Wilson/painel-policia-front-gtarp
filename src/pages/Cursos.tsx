@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { BookOpen, Video, ExternalLink, Plus, CheckCircle, RefreshCw, X, PlayCircle } from 'lucide-react';
+import { BookOpen, Video, ExternalLink, Plus, CheckCircle, RefreshCw, X, PlayCircle, Users, GraduationCap } from 'lucide-react';
 
 interface Course {
   id: string;
@@ -29,6 +29,15 @@ export const Cursos: React.FC = () => {
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
 
+  // Tabs
+  const [activeTab, setActiveTab] = useState<'aulas' | 'gestao'>('aulas');
+  
+  // Gestao states
+  const [usersList, setUsersList] = useState<any[]>([]);
+  const [fetchingUsers, setFetchingUsers] = useState(false);
+  const [completing, setCompleting] = useState(false);
+  const { reloadUser } = useAuth();
+
   const fetchCourses = async () => {
     try {
       setFetching(true);
@@ -41,15 +50,29 @@ export const Cursos: React.FC = () => {
         }
       }
     } catch (err) {
-      console.error('Erro ao buscar cursos:', err);
     } finally {
       setFetching(false);
     }
   };
 
   useEffect(() => {
-    fetchCourses();
-  }, []);
+    if (activeTab === 'aulas') fetchCourses();
+    else fetchUsersList();
+  }, [activeTab]);
+
+  const fetchUsersList = async () => {
+    try {
+      setFetchingUsers(true);
+      const res = await fetch('/api/users/all');
+      if (res.ok) {
+        const data = await res.json();
+        setUsersList(data);
+      }
+    } catch (err) {
+    } finally {
+      setFetchingUsers(false);
+    }
+  };
 
   const handleCreateCourse = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,7 +125,26 @@ export const Cursos: React.FC = () => {
     return url.includes('youtube.com') || url.includes('youtu.be');
   };
 
-  const isOfficer = hasPermission('users'); // Major+ can create courses
+  const isInstructor = user?.isInstructor === true;
+  const canCreateCourse = isInstructor;
+  const canManageStudents = isInstructor;
+
+  const handleCompleteCourse = async (course: Course) => {
+    setCompleting(true);
+    try {
+      const response = await fetch(`/api/courses/${course.id}/complete`, { method: 'POST' });
+      if (response.ok) {
+        await reloadUser();
+        setSuccess('Curso marcado como concluído!');
+      } else {
+        const data = await response.json();
+        setError(data.error || 'Erro ao concluir curso.');
+      }
+    } catch (err) {
+    } finally {
+      setCompleting(false);
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -117,7 +159,7 @@ export const Cursos: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {isOfficer && (
+          {canCreateCourse && (
             <button
               onClick={() => { setShowModal(true); setError(''); setSuccess(''); }}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-yellow-600 hover:bg-yellow-500 text-white text-xs font-bold transition-all shadow-md uppercase tracking-wider"
@@ -127,17 +169,42 @@ export const Cursos: React.FC = () => {
             </button>
           )}
           <button 
-            onClick={fetchCourses} 
-            disabled={fetching}
+            onClick={() => activeTab === 'aulas' ? fetchCourses() : fetchUsersList()} 
+            disabled={fetching || fetchingUsers}
             className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800/80 transition-colors"
             title="Recarregar"
           >
-            <RefreshCw className={`w-4.5 h-4.5 ${fetching ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4.5 h-4.5 ${(fetching || fetchingUsers) ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
-      {fetching && courses.length === 0 ? (
+      {canManageStudents && (
+        <div className="flex border-b border-slate-800">
+          <button
+            onClick={() => setActiveTab('aulas')}
+            className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-b-2 transition-colors ${
+              activeTab === 'aulas' ? 'border-yellow-500 text-yellow-400' : 'border-transparent text-slate-400 hover:text-slate-300'
+            }`}
+          >
+            <BookOpen className="w-4 h-4" /> Aulas e Manuais
+          </button>
+          <button
+            onClick={() => setActiveTab('gestao')}
+            className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-b-2 transition-colors ${
+              activeTab === 'gestao' ? 'border-yellow-500 text-yellow-400' : 'border-transparent text-slate-400 hover:text-slate-300'
+            }`}
+          >
+            <Users className="w-4 h-4" /> Gestão de Alunos
+          </button>
+        </div>
+      )}
+
+      {success && <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs rounded-xl">{success}</div>}
+      {error && <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs rounded-xl">{error}</div>}
+
+      {activeTab === 'aulas' ? (
+        fetching && courses.length === 0 ? (
         <div className="py-24 flex flex-col items-center justify-center text-slate-500 text-xs gap-3">
           <div className="w-8 h-8 rounded-full border-2 border-yellow-500/20 border-t-yellow-500 animate-spin" />
           <span>Carregando centro de estudos...</span>
@@ -206,6 +273,28 @@ export const Cursos: React.FC = () => {
                   <p className="text-xs text-slate-400 whitespace-pre-line leading-relaxed">
                     {selectedCourse.description}
                   </p>
+
+                  <div className="pt-4 border-t border-slate-800/60 flex justify-end">
+                    {user?.courseTags?.includes(selectedCourse.title) ? (
+                      <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 text-emerald-400 text-xs font-bold border border-emerald-500/20">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>CURSO CONCLUÍDO</span>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleCompleteCourse(selectedCourse)}
+                        disabled={completing}
+                        className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-yellow-600 hover:bg-yellow-500 text-white text-xs font-bold transition-all shadow-md uppercase tracking-wider disabled:opacity-50"
+                      >
+                        {completing ? (
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <GraduationCap className="w-4 h-4" />
+                        )}
+                        <span>MARCAR COMO CONCLUÍDO</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
               </div>
@@ -251,6 +340,61 @@ export const Cursos: React.FC = () => {
             </div>
           </div>
 
+        </div>
+        )
+      ) : (
+        <div className="glass-panel rounded-2xl border border-slate-800/60 min-h-[400px]">
+          {fetchingUsers ? (
+            <div className="py-24 flex flex-col items-center justify-center text-slate-500 text-xs gap-3">
+              <div className="w-8 h-8 rounded-full border-2 border-yellow-500/20 border-t-yellow-500 animate-spin" />
+              <span>Carregando alunos...</span>
+            </div>
+          ) : (
+            <div className="overflow-x-auto p-5">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <th className="py-3 px-2">Aluno</th>
+                    <th className="py-3 px-2">Passaporte</th>
+                    <th className="py-3 px-2">Cursos Concluídos</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/30 text-xs">
+                  {usersList.filter(u => u.status === 'active' || u.status === 'exonerated').map(u => (
+                    <tr key={u.id} className="hover:bg-slate-900/10 transition-colors">
+                      <td className="py-3.5 px-2">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-300 uppercase overflow-hidden border border-slate-700/50 flex-shrink-0">
+                            {u.avatarUrl ? (
+                              <img src={u.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                            ) : (
+                              u.name.charAt(0)
+                            )}
+                          </div>
+                          <span className="font-bold text-slate-200">{u.name}</span>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-2 text-slate-400 font-mono">{u.id}</td>
+                      <td className="py-3.5 px-2">
+                        <div className="flex flex-wrap gap-2">
+                          {u.courseTags && u.courseTags.length > 0 ? (
+                            u.courseTags.map((tag: string, idx: number) => (
+                              <span key={idx} className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 rounded-md text-[10px] font-bold">
+                                <GraduationCap className="w-3 h-3" />
+                                {tag}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-slate-500 italic text-[10px]">Nenhum curso concluído</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 

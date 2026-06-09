@@ -8,6 +8,7 @@ interface UserData {
   name: string;
   role: string;
   status: string;
+  isInstructor?: boolean;
   createdAt: string;
 }
 
@@ -26,7 +27,6 @@ export const UserManagement: React.FC = () => {
         setUsers(data);
       }
     } catch (err) {
-      console.error('Erro ao buscar usuários:', err);
     } finally {
       setFetching(false);
     }
@@ -52,7 +52,6 @@ export const UserManagement: React.FC = () => {
         alert(data.error || 'Erro ao aprovar usuário.');
       }
     } catch (err) {
-      console.error('Erro ao aprovar usuário:', err);
     } finally {
       setUpdating(null);
     }
@@ -74,7 +73,30 @@ export const UserManagement: React.FC = () => {
         alert(data.error || 'Erro ao alterar cargo.');
       }
     } catch (err) {
-      console.error('Erro ao promover usuário:', err);
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  const handleToggleInstructor = async (userId: string, currentFlag: boolean) => {
+    setUpdating(userId);
+    try {
+      const response = await fetch('/api/users/toggle-instructor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, isInstructor: !currentFlag })
+      });
+
+      if (response.ok) {
+        await fetchUsers();
+        if (user?.id === userId) {
+          if (reloadUser) await reloadUser();
+        }
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Erro ao alterar flag de instrutor.');
+      }
+    } catch (err) {
     } finally {
       setUpdating(null);
     }
@@ -215,6 +237,7 @@ export const UserManagement: React.FC = () => {
                     <th className="py-3 px-2">Militar</th>
                     <th className="py-3 px-2">Passaporte</th>
                     <th className="py-3 px-2">Cargo / Patente</th>
+                    <th className="py-3 px-2 text-center">Instrutor</th>
                     <th className="py-3 px-2 text-right">Ações de Cargo</th>
                   </tr>
                 </thead>
@@ -222,9 +245,18 @@ export const UserManagement: React.FC = () => {
                   {activeUsers.map(u => (
                     <tr key={u.id} className="hover:bg-slate-900/10 transition-colors">
                       <td className="py-3.5 px-2">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-slate-200">{u.name}</span>
-                          {u.ra && <span className="text-[10px] text-slate-500 font-mono">RA: {u.ra}</span>}
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-300 uppercase overflow-hidden border border-slate-700/50 flex-shrink-0">
+                            {u.avatarUrl ? (
+                              <img src={u.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                            ) : (
+                              u.name.charAt(0)
+                            )}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="font-bold text-slate-200">{u.name}</span>
+                            {u.ra && <span className="text-[10px] text-slate-500 font-mono">RA: {u.ra}</span>}
+                          </div>
                         </div>
                       </td>
                       <td className="py-3.5 px-2 text-slate-400 font-mono">{u.id}</td>
@@ -238,6 +270,17 @@ export const UserManagement: React.FC = () => {
                           </div>
                           {u.responsible && <span className="text-[9px] text-slate-500">Resp: {u.responsible}</span>}
                         </div>
+                      </td>
+                      <td className="py-3.5 px-2 text-center">
+                        <label className="flex items-center justify-center cursor-pointer">
+                          <input 
+                            type="checkbox"
+                            checked={u.isInstructor || false}
+                            disabled={updating === u.id}
+                            onChange={() => handleToggleInstructor(u.id, u.isInstructor || false)}
+                            className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-yellow-500 focus:ring-yellow-500/30 focus:ring-offset-slate-900 cursor-pointer disabled:opacity-50"
+                          />
+                        </label>
                       </td>
                       <td className="py-3.5 px-2 text-right">
                         {/* Avoid self promotion/demotion */}

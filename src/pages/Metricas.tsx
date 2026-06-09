@@ -111,7 +111,6 @@ export const Metricas: React.FC = () => {
               }
             });
           } catch (e) {
-            console.error('Error parsing members', e);
           }
         }
       });

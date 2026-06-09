@@ -72,7 +72,6 @@ export const Informativos: React.FC = () => {
         setSystemUsers(users.filter((u: any) => u.status === 'active'));
       }
     } catch (err) {
-      console.error(err);
     } finally {
       setLoading(false);
     }

@@ -77,7 +77,6 @@ export const Corregedoria: React.FC = () => {
         }
       }
     } catch (err) {
-      console.error('Erro ao carregar dados da corregedoria:', err);
     } finally {
       setFetching(false);
     }

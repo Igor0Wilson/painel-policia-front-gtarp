@@ -9,7 +9,8 @@ import { Prisional } from './pages/Prisional';
 import { FichasPrisionais } from './pages/FichasPrisionais';
 import { RelatoriosOcorrencias } from './pages/RelatoriosOcorrencias';
 import { Ausencias } from './pages/Ausencias';
-import { ComandosOperadores } from './pages/ComandosOperadores';
+import { Subdivisoes } from './pages/Subdivisoes';
+import { SubdivisaoManager } from './pages/SubdivisaoManager';
 import { Corregedoria } from './pages/Corregedoria';
 import { Cursos } from './pages/Cursos';
 import { Informativos } from './pages/Informativos';
@@ -18,6 +19,9 @@ import { Exoneracoes } from './pages/Exoneracoes';
 import { PermissionsConfig } from './pages/PermissionsConfig';
 import { Metricas } from './pages/Metricas';
 import { RedeSocial } from './pages/RedeSocial';
+import { Chat } from './pages/Chat';
+import { Profile } from './pages/Profile';
+import { PublicPost } from './pages/PublicPost';
 import { Shield, ShieldAlert } from 'lucide-react';
 
 // Private Route Wrapper with Permission Gating
@@ -80,8 +84,9 @@ export const App: React.FC = () => {
     <AuthProvider>
       <Router>
         <Routes>
-          {/* Public Auth */}
+          {/* Public Auth & Pages */}
           <Route path="/login" element={<Login />} />
+          <Route path="/clipe/:id" element={<PublicPost />} />
 
           {/* Protected Routes */}
           <Route 
@@ -125,10 +130,18 @@ export const App: React.FC = () => {
             } 
           />
           <Route 
-            path="/comandos" 
+            path="/subdivisoes" 
             element={
-              <PrivateRoute permission="comandos" title="Quadros Táticos e Operadores">
-                <ComandosOperadores />
+              <PrivateRoute permission="comandos" title="Gestão de Subdivisões">
+                <Subdivisoes />
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/subdivisao/:id" 
+            element={
+              <PrivateRoute permission="comandos" title="Gerenciar Subdivisão">
+                <SubdivisaoManager />
               </PrivateRoute>
             } 
           />
@@ -192,8 +205,24 @@ export const App: React.FC = () => {
           <Route 
             path="/social" 
             element={
-              <PrivateRoute permission="dashboard" title="Comunidade e Vídeos">
+              <PrivateRoute permission="social" title="Comunidade e Vdeos">
                 <RedeSocial />
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/chat" 
+            element={
+              <PrivateRoute permission="chat" title="Bate-Papo da Corporação">
+                <Chat />
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/perfil" 
+            element={
+              <PrivateRoute permission="dashboard" title="Meu Perfil">
+                <Profile />
               </PrivateRoute>
             } 
           />

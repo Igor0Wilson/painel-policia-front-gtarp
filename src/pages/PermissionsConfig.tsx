@@ -19,7 +19,6 @@ export const PermissionsConfig: React.FC = () => {
         setPermissionsMap(data);
       }
     } catch (err) {
-      console.error('Erro ao buscar mapa de permissões:', err);
     } finally {
       setFetching(false);
     }
@@ -87,17 +86,20 @@ export const PermissionsConfig: React.FC = () => {
   ];
 
   const features = [
-    { key: 'dashboard', label: 'Acesso ao Dashboard' },
-    { key: 'copom', label: 'Acesso ao COPOM' },
-    { key: 'relatorios', label: 'Acesso a Relatórios PTR' },
-    { key: 'calculadora', label: 'Acesso à Calculadora Penal' },
-    { key: 'ausencias', label: 'Acesso a Justificar Ausência' },
-    { key: 'comandos', label: 'Acesso a Quadros Táticos' },
+    { key: 'dashboard', label: 'Acesso ao Dashboard Principal' },
+    { key: 'prisional', label: 'Módulo Prisional e Histórico' },
+    { key: 'relatorios', label: 'Relatórios PTR e Central (COPOM)' },
+    { key: 'ausencias', label: 'Módulo de Ausências' },
+    { key: 'comandos', label: 'Gestão de Subdivisões' },
+    { key: 'corregedoria', label: 'Corregedoria Interna' },
     { key: 'cursos', label: 'Cursos & Apostilas' },
     { key: 'informativos', label: 'Informativos e Murais' },
-    { key: 'users', label: 'Gerenciamento de Membros (Oficiais)' },
-    { key: 'permissions', label: 'Configurações de Permissões (Coronel)' },
-    { key: 'metrics', label: 'Acesso a Métricas da Corporação' }
+    { key: 'users', label: 'Gestão de Membros' },
+    { key: 'exoneracoes', label: 'Exonerações' },
+    { key: 'permissions', label: 'Configurações de Permissões' },
+    { key: 'metrics', label: 'Métricas da Corporação' },
+    { key: 'social', label: 'Comunidade & Clipes' },
+    { key: 'chat', label: 'Bate-Papo da Corporação' }
   ];
 
   const hasAdminRights = user?.role === 'coronel' || user?.role === 'tenente-coronel';

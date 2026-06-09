@@ -5,6 +5,10 @@ export interface User {
   name: string;
   role: string;
   status: string;
+  isInstructor?: boolean;
+  courseTags?: string[];
+  avatarUrl?: string;
+  coverUrl?: string;
 }
 
 interface AuthContextType {
@@ -32,7 +36,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setPermissions(data);
       }
     } catch (error) {
-      console.error('Erro ao buscar permissões:', error);
     }
   };
 
@@ -47,7 +50,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(null);
       }
     } catch (error) {
-      console.error('Erro ao carregar sessão do usuário:', error);
       setUser(null);
     } finally {
       setLoading(false);
@@ -68,7 +70,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
     } catch (error) {
-      console.error('Erro ao deslogar no servidor:', error);
     }
     setUser(null);
     setPermissions({});
@@ -91,7 +92,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(userData);
       }
     } catch (error) {
-      console.error('Erro ao recarregar usuário:', error);
     }
   };
 

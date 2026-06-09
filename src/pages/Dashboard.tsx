@@ -114,7 +114,6 @@ export const Dashboard: React.FC = () => {
         setPromotions(promData);
       }
     } catch (err) {
-      console.error('Erro ao carregar dados do Dashboard:', err);
     } finally {
       setLoading(false);
     }

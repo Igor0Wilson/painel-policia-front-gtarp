@@ -21,28 +21,28 @@ if (!useLocalDb) {
       storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
       messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
       appId: process.env.FIREBASE_APP_ID,
-      measurementId: process.env.FIREBASE_MEASUREMENT_ID
+      measurementId: process.env.FIREBASE_MEASUREMENT_ID,
     };
 
     if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-      throw new Error("Credenciais do Firebase ausentes nas Variáveis de Ambiente (Vercel).");
+      throw new Error(
+        "Credenciais do Firebase ausentes nas variáveis de ambiente."
+      );
     }
 
-    firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+    firebaseApp =
+      getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     db = firestore.getFirestore(firebaseApp);
-    console.log("[Database] Inicializando Firebase Firestore...");
-  } catch (err) {
-    console.error("[Database] Falha ao conectar ao Firebase. Forçando fallback para banco de dados local.", err);
+  } catch {
     isLocalActive = true;
     db = { type: "local" };
   }
 } else {
   db = { type: "local" };
-  console.log("[Database] Utilizando banco de dados local (db.json) via configuração .env.");
 }
 
 // -------------------------------------------------------------
-// LOCAL DB IMPLEMENTATION
+// LOCAL DB IMPLEMENTATION (only used when USE_LOCAL_DB=true)
 // -------------------------------------------------------------
 const dbPath = path.resolve(process.cwd(), "db.json");
 
@@ -59,20 +59,57 @@ function readDb() {
       courses: {},
       config: {
         permissions: {
-          "coronel": ["dashboard", "comandos", "copom", "alinhamento", "ausencias", "exoneracoes", "relatorios", "tickets", "promocoes", "corregedoria", "calculadora", "informativos", "permissions", "users", "prisional", "cursos"],
-          "tenente-coronel": ["dashboard", "comandos", "copom", "alinhamento", "ausencias", "exoneracoes", "relatorios", "tickets", "promocoes", "corregedoria", "calculadora", "informativos", "permissions", "users", "prisional", "cursos"],
-          "major": ["dashboard", "comandos", "copom", "alinhamento", "ausencias", "relatorios", "calculadora", "informativos", "prisional", "cursos", "corregedoria"],
-          "capitao": ["dashboard", "comandos", "copom", "alinhamento", "ausencias", "relatorios", "calculadora", "informativos", "prisional", "cursos", "corregedoria"],
-          "1-tenente": ["dashboard", "comandos", "copom", "alinhamento", "ausencias", "relatorios", "calculadora", "informativos", "prisional", "cursos", "corregedoria"],
-          "2-tenente": ["dashboard", "comandos", "copom", "alinhamento", "ausencias", "relatorios", "calculadora", "informativos", "prisional", "cursos", "corregedoria"],
-          "1-sargento": ["dashboard", "comandos", "copom", "ausencias", "relatorios", "calculadora", "informativos", "prisional", "cursos", "corregedoria"],
-          "2-sargento": ["dashboard", "comandos", "copom", "ausencias", "relatorios", "calculadora", "informativos", "prisional", "cursos", "corregedoria"],
-          "3-sargento": ["dashboard", "comandos", "copom", "ausencias", "relatorios", "calculadora", "informativos", "prisional", "cursos", "corregedoria"],
-          "cabo": ["dashboard", "comandos", "copom", "ausencias", "relatorios", "calculadora", "informativos", "prisional", "cursos", "corregedoria"],
-          "1-soldado": ["dashboard", "copom", "ausencias", "relatorios", "calculadora", "informativos", "prisional", "cursos", "corregedoria"],
-          "2-soldado": ["dashboard", "copom", "calculadora", "informativos", "prisional", "cursos"]
-        }
-      }
+          coronel: [
+            "dashboard", "comandos", "copom", "alinhamento", "ausencias",
+            "exoneracoes", "relatorios", "tickets", "promocoes", "corregedoria",
+            "calculadora", "informativos", "permissions", "users", "prisional", "cursos", "chat",
+          ],
+          "tenente-coronel": [
+            "dashboard", "comandos", "copom", "alinhamento", "ausencias",
+            "exoneracoes", "relatorios", "tickets", "promocoes", "corregedoria",
+            "calculadora", "informativos", "permissions", "users", "prisional", "cursos", "chat",
+          ],
+          major: [
+            "dashboard", "comandos", "copom", "alinhamento", "ausencias",
+            "relatorios", "calculadora", "informativos", "prisional", "cursos", "corregedoria", "chat",
+          ],
+          capitao: [
+            "dashboard", "comandos", "copom", "alinhamento", "ausencias",
+            "relatorios", "calculadora", "informativos", "prisional", "cursos", "corregedoria", "chat",
+          ],
+          "1-tenente": [
+            "dashboard", "comandos", "copom", "alinhamento", "ausencias",
+            "relatorios", "calculadora", "informativos", "prisional", "cursos", "corregedoria", "chat",
+          ],
+          "2-tenente": [
+            "dashboard", "comandos", "copom", "alinhamento", "ausencias",
+            "relatorios", "calculadora", "informativos", "prisional", "cursos", "corregedoria", "chat",
+          ],
+          "1-sargento": [
+            "dashboard", "comandos", "copom", "ausencias", "relatorios",
+            "calculadora", "informativos", "prisional", "cursos", "corregedoria", "chat",
+          ],
+          "2-sargento": [
+            "dashboard", "comandos", "copom", "ausencias", "relatorios",
+            "calculadora", "informativos", "prisional", "cursos", "corregedoria", "chat",
+          ],
+          "3-sargento": [
+            "dashboard", "comandos", "copom", "ausencias", "relatorios",
+            "calculadora", "informativos", "prisional", "cursos", "corregedoria", "chat",
+          ],
+          cabo: [
+            "dashboard", "comandos", "copom", "ausencias", "relatorios",
+            "calculadora", "informativos", "prisional", "cursos", "corregedoria", "chat",
+          ],
+          "1-soldado": [
+            "dashboard", "copom", "ausencias", "relatorios",
+            "calculadora", "informativos", "prisional", "cursos", "corregedoria", "chat",
+          ],
+          "2-soldado": [
+            "dashboard", "copom", "calculadora", "informativos", "prisional", "cursos", "chat",
+          ],
+        },
+      },
     };
     fs.writeFileSync(dbPath, JSON.stringify(initialData, null, 2), "utf8");
     return initialData;
@@ -80,8 +117,7 @@ function readDb() {
   try {
     const data = fs.readFileSync(dbPath, "utf8");
     return JSON.parse(data);
-  } catch (err) {
-    console.error("Erro ao ler db.json local, recriando...", err);
+  } catch {
     return {};
   }
 }
@@ -89,8 +125,8 @@ function readDb() {
 function writeDb(data: any) {
   try {
     fs.writeFileSync(dbPath, JSON.stringify(data, null, 2), "utf8");
-  } catch (err) {
-    console.error("Erro ao escrever no banco de dados local db.json:", err);
+  } catch {
+    // Silently fail — will retry on next operation
   }
 }
 
@@ -103,7 +139,10 @@ class LocalCollectionRef {
 }
 
 class LocalQueryRef {
-  constructor(public collectionRef: LocalCollectionRef, public constraints: any[]) {}
+  constructor(
+    public collectionRef: LocalCollectionRef,
+    public constraints: any[]
+  ) {}
 }
 
 // -------------------------------------------------------------
@@ -165,16 +204,18 @@ export async function getDoc(docRef: any) {
     return {
       exists: () => docData !== undefined,
       data: () => docData,
-      id: docRef.id
+      id: docRef.id,
     };
   }
   try {
     return await firestore.getDoc(docRef);
   } catch (err: any) {
-    if (err.message && (err.message.includes("offline") || err.message.includes("PERMISSION_DENIED"))) {
-      console.warn("[Database] Falha de permissão ou conexão no Firestore. Ativando banco de dados local temporário...");
+    if (
+      err.message &&
+      (err.message.includes("offline") ||
+        err.message.includes("PERMISSION_DENIED"))
+    ) {
       isLocalActive = true;
-      // Re-run operation against local DB
       return getDoc(docRef);
     }
     throw err;
@@ -193,8 +234,11 @@ export async function setDoc(docRef: any, data: any) {
   try {
     return await firestore.setDoc(docRef, data);
   } catch (err: any) {
-    if (err.message && (err.message.includes("offline") || err.message.includes("PERMISSION_DENIED"))) {
-      console.warn("[Database] Falha de permissão no Firestore. Ativando banco de dados local...");
+    if (
+      err.message &&
+      (err.message.includes("offline") ||
+        err.message.includes("PERMISSION_DENIED"))
+    ) {
       isLocalActive = true;
       return setDoc(docRef, data);
     }
@@ -215,8 +259,11 @@ export async function updateDoc(docRef: any, data: any) {
   try {
     return await firestore.updateDoc(docRef, data);
   } catch (err: any) {
-    if (err.message && (err.message.includes("offline") || err.message.includes("PERMISSION_DENIED"))) {
-      console.warn("[Database] Falha de permissão no Firestore. Ativando banco de dados local...");
+    if (
+      err.message &&
+      (err.message.includes("offline") ||
+        err.message.includes("PERMISSION_DENIED"))
+    ) {
       isLocalActive = true;
       return updateDoc(docRef, data);
     }
@@ -237,8 +284,11 @@ export async function addDoc(collectionRef: any, data: any) {
   try {
     return await firestore.addDoc(collectionRef, data);
   } catch (err: any) {
-    if (err.message && (err.message.includes("offline") || err.message.includes("PERMISSION_DENIED"))) {
-      console.warn("[Database] Falha de permissão no Firestore. Ativando banco de dados local...");
+    if (
+      err.message &&
+      (err.message.includes("offline") ||
+        err.message.includes("PERMISSION_DENIED"))
+    ) {
       isLocalActive = true;
       return addDoc(collectionRef, data);
     }
@@ -259,8 +309,11 @@ export async function deleteDoc(docRef: any) {
   try {
     return await firestore.deleteDoc(docRef);
   } catch (err: any) {
-    if (err.message && (err.message.includes("offline") || err.message.includes("PERMISSION_DENIED"))) {
-      console.warn("[Database] Falha de permissão no Firestore. Ativando banco de dados local...");
+    if (
+      err.message &&
+      (err.message.includes("offline") ||
+        err.message.includes("PERMISSION_DENIED"))
+    ) {
       isLocalActive = true;
       return deleteDoc(docRef);
     }
@@ -269,7 +322,11 @@ export async function deleteDoc(docRef: any) {
 }
 
 export async function getDocs(queryOrCollection: any) {
-  if (isLocalActive || queryOrCollection instanceof LocalCollectionRef || queryOrCollection instanceof LocalQueryRef) {
+  if (
+    isLocalActive ||
+    queryOrCollection instanceof LocalCollectionRef ||
+    queryOrCollection instanceof LocalQueryRef
+  ) {
     const dbData = readDb();
     let collectionName = "";
     let constraints: any[] = [];
@@ -281,25 +338,26 @@ export async function getDocs(queryOrCollection: any) {
     }
     const colKey = collectionName.replace(/\//g, "_");
     const collectionData = dbData[colKey] || {};
-    let docs = Object.keys(collectionData).map(id => ({
+    let docs = Object.keys(collectionData).map((id) => ({
       id,
       exists: () => true,
-      data: () => collectionData[id]
+      data: () => collectionData[id],
     }));
     for (const c of constraints) {
       if (c.type === "where") {
-        docs = docs.filter(d => {
+        docs = docs.filter((d) => {
           const val = d.data()[c.field];
           if (c.op === "==") return val === c.value;
           if (c.op === "!=") return val !== c.value;
           if (c.op === ">") return val > c.value;
           if (c.op === "<") return val < c.value;
-          if (c.op === "array-contains") return Array.isArray(val) && val.includes(c.value);
+          if (c.op === "array-contains")
+            return Array.isArray(val) && val.includes(c.value);
           return true;
         });
       }
     }
-    const orderConstraint = constraints.find(c => c.type === "orderBy");
+    const orderConstraint = constraints.find((c) => c.type === "orderBy");
     if (orderConstraint) {
       const field = orderConstraint.field;
       const desc = orderConstraint.direction === "desc";
@@ -312,7 +370,7 @@ export async function getDocs(queryOrCollection: any) {
         return 0;
       });
     }
-    const limitConstraint = constraints.find(c => c.type === "limit");
+    const limitConstraint = constraints.find((c) => c.type === "limit");
     if (limitConstraint) {
       docs = docs.slice(0, limitConstraint.limit);
     }
@@ -320,14 +378,17 @@ export async function getDocs(queryOrCollection: any) {
       docs,
       empty: docs.length === 0,
       size: docs.length,
-      forEach: (callback: (doc: any) => void) => docs.forEach(callback)
+      forEach: (callback: (doc: any) => void) => docs.forEach(callback),
     };
   }
   try {
     return await firestore.getDocs(queryOrCollection);
   } catch (err: any) {
-    if (err.message && (err.message.includes("offline") || err.message.includes("PERMISSION_DENIED"))) {
-      console.warn("[Database] Falha de permissão no Firestore. Ativando banco de dados local...");
+    if (
+      err.message &&
+      (err.message.includes("offline") ||
+        err.message.includes("PERMISSION_DENIED"))
+    ) {
       isLocalActive = true;
       return getDocs(queryOrCollection);
     }

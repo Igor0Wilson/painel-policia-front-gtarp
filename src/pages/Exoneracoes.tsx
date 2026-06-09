@@ -53,7 +53,6 @@ export const Exoneracoes: React.FC = () => {
         setLogs(lData);
       }
     } catch (err) {
-      console.error('Erro ao buscar dados de exoneração:', err);
     } finally {
       setLoading(false);
     }
