@@ -8,8 +8,8 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": "./api",
     "resolveJsonModule": true
   },
-  "include": ["src/**/*"]
+  "include": ["api/**/*"]
 }
