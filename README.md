@@ -108,28 +108,21 @@ cp .env.example .env
 | `FIREBASE_MEASUREMENT_ID` | Measurement ID (Analytics) |
 | `JWT_SECRET` | String secreta longa para assinar tokens |
 | `CLOUDINARY_CLOUD_NAME` | Nome do cloud no Cloudinary |
-| `CLOUDINARY_API_KEY` | API Key do Cloudinary |
-| `CLOUDINARY_API_SECRET` | API Secret do Cloudinary |
-| `ALLOWED_ORIGIN` | URL do deploy (ex: `https://seu-projeto.vercel.app`) |
+## 🚀 Como subir na Vercel (Projeto Único)
 
-### 4. Rode localmente
-```bash
-# Terminal 1 — Frontend
-npm run dev
+Este sistema foi construído de forma otimizada para rodar Frontend e Backend (API) juntos **no mesmo projeto Vercel**. 
 
-# Terminal 2 — Backend
-npm run dev:backend
-```
+### Passo 1: Configurar a Vercel
+1. Vá em **Add New > Project** no painel da Vercel.
+2. Importe este repositório do GitHub.
+3. O *Framework Preset* deve ser detectado automaticamente como **Vite**.
 
-### 5. Deploy para produção
-```bash
-git add .
-git commit -m "deploy"
-git push
-```
+### Passo 2: Variáveis de Ambiente
+Antes de clicar em Deploy, vá até a aba **Environment Variables** e cole TODAS as variáveis do arquivo `.env.example` com seus valores reais (Chaves do Firebase, Cloudinary, etc).
+- **Sem as chaves do Firebase, o sistema não vai rodar!**
 
-> A Vercel detecta automaticamente o Vite + as Serverless Functions em `api/` e faz o deploy.
-> Após o primeiro deploy, adicione todas as variáveis de ambiente em **Vercel → Settings → Environment Variables**.
+### Passo 3: Deploy
+Clique em **Deploy** e aguarde a finalização! A Vercel cuidará de compilar a interface e também a pasta `/api` com as Serverless Functions automaticamente.
 
 ---
 
