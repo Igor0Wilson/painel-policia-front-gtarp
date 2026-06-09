@@ -38,6 +38,14 @@ app.get("/api/health", (_req, res) => {
 
 app.use("/api", router);
 
+// Global error handler — garante que erros nunca retornem HTML (que causaria o "not valid JSON")
+app.use((err: any, _req: any, res: any, _next: any) => {
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({
+    error: err.message || "Erro interno do servidor.",
+  });
+});
+
 // Local development server
 if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
   const PORT = process.env.PORT || 5000;

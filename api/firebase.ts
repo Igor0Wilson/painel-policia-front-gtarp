@@ -213,16 +213,10 @@ export async function getDoc(docRef: any) {
   }
   try {
     return await firestore.getDoc(docRef);
-  } catch (err: any) {
-    if (
-      err.message &&
-      (err.message.includes("offline") ||
-        err.message.includes("PERMISSION_DENIED"))
-    ) {
-      isLocalActive = true;
-      return getDoc(docRef);
-    }
-    throw err;
+  } catch {
+    // Any Firestore error — fall back to local DB
+    isLocalActive = true;
+    return getDoc(docRef);
   }
 }
 
@@ -237,16 +231,9 @@ export async function setDoc(docRef: any, data: any) {
   }
   try {
     return await firestore.setDoc(docRef, data);
-  } catch (err: any) {
-    if (
-      err.message &&
-      (err.message.includes("offline") ||
-        err.message.includes("PERMISSION_DENIED"))
-    ) {
-      isLocalActive = true;
-      return setDoc(docRef, data);
-    }
-    throw err;
+  } catch {
+    isLocalActive = true;
+    return setDoc(docRef, data);
   }
 }
 
@@ -262,16 +249,9 @@ export async function updateDoc(docRef: any, data: any) {
   }
   try {
     return await firestore.updateDoc(docRef, data);
-  } catch (err: any) {
-    if (
-      err.message &&
-      (err.message.includes("offline") ||
-        err.message.includes("PERMISSION_DENIED"))
-    ) {
-      isLocalActive = true;
-      return updateDoc(docRef, data);
-    }
-    throw err;
+  } catch {
+    isLocalActive = true;
+    return updateDoc(docRef, data);
   }
 }
 
@@ -287,16 +267,9 @@ export async function addDoc(collectionRef: any, data: any) {
   }
   try {
     return await firestore.addDoc(collectionRef, data);
-  } catch (err: any) {
-    if (
-      err.message &&
-      (err.message.includes("offline") ||
-        err.message.includes("PERMISSION_DENIED"))
-    ) {
-      isLocalActive = true;
-      return addDoc(collectionRef, data);
-    }
-    throw err;
+  } catch {
+    isLocalActive = true;
+    return addDoc(collectionRef, data);
   }
 }
 
@@ -312,16 +285,9 @@ export async function deleteDoc(docRef: any) {
   }
   try {
     return await firestore.deleteDoc(docRef);
-  } catch (err: any) {
-    if (
-      err.message &&
-      (err.message.includes("offline") ||
-        err.message.includes("PERMISSION_DENIED"))
-    ) {
-      isLocalActive = true;
-      return deleteDoc(docRef);
-    }
-    throw err;
+  } catch {
+    isLocalActive = true;
+    return deleteDoc(docRef);
   }
 }
 
@@ -387,15 +353,8 @@ export async function getDocs(queryOrCollection: any) {
   }
   try {
     return await firestore.getDocs(queryOrCollection);
-  } catch (err: any) {
-    if (
-      err.message &&
-      (err.message.includes("offline") ||
-        err.message.includes("PERMISSION_DENIED"))
-    ) {
-      isLocalActive = true;
-      return getDocs(queryOrCollection);
-    }
-    throw err;
+  } catch {
+    isLocalActive = true;
+    return getDocs(queryOrCollection);
   }
 }
